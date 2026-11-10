@@ -144,7 +144,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async getName(id: string): Promise<string> {
-    return (await this.s.tree.element(id)).role;
+    return (await this.s.tree.attribute(id, 'role')) ?? '';
   }
 
   async getElementRect(id: string) {
@@ -152,16 +152,15 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async elementDisplayed(id: string): Promise<boolean> {
-    return (await this.s.tree.attribute(id, 'visible')) === 'true';
+    return (await this.s.tree.state(id)).displayed;
   }
 
   async elementEnabled(id: string): Promise<boolean> {
-    return (await this.s.tree.element(id)).enabled;
+    return (await this.s.tree.state(id)).enabled;
   }
 
   async elementSelected(id: string): Promise<boolean> {
-    const el = await this.s.tree.element(id);
-    return el.selected || el.checked === 'on';
+    return (await this.s.tree.state(id)).selected;
   }
 
   async getScreenshot(): Promise<string> {
@@ -185,13 +184,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async setWindowRect(x: number | null, y: number | null, width: number | null, height: number | null) {
-    const win = await this.s.target.window();
-    if (x != null && y != null) {
-      await win.moveTo(x, y);
-    }
-    if (width != null && height != null) {
-      await win.resizeTo(width, height);
-    }
+    await this.s.target.moveWindow({ x, y, width, height });
     return (await this.s.tree.windowRect()) ?? { x: 0, y: 0, width: 0, height: 0 };
   }
 
@@ -211,22 +204,20 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async xa11yFocusWindow(name?: string): Promise<void> {
-    await (await this.s.target.window(name)).activate();
+    await this.s.target.focusWindow(name);
   }
 
   async xa11yCloseWindow(name?: string): Promise<void> {
-    await (await this.s.target.window(name)).close();
+    await this.s.target.closeWindow(name);
   }
 
   async xa11yLaunch(app: string, args: string[] = []): Promise<{ pid: number | null; name: string }> {
     const launched = await this.s.target.launch(app, args);
-    this.s.tree.forget();
     return { pid: launched.pid, name: launched.name };
   }
 
   async xa11ySwitchApp(name?: string, pid?: number): Promise<{ pid: number | null; name: string }> {
     const app = await this.s.target.attach({ name, pid });
-    this.s.tree.forget();
     return { pid: app.pid, name: app.name };
   }
 
@@ -235,7 +226,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async xa11yListWindows() {
-    return (await this.s.target.app.windows()).map((w) => ({ name: w.name, role: w.role, active: w.active, bounds: w.bounds }));
+    return this.s.target.windows();
   }
 
   async xa11yActiveAppInfo(): Promise<{ pid: number | null; name: string }> {
@@ -244,16 +235,10 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async activateApp(appId: string): Promise<void> {
-    const attached = await this.s.target.attach({ name: appId }, 0).catch(() => undefined);
-    if (!attached) {
-      await this.xa11yLaunch(appId);
-      return;
-    }
-    this.s.tree.forget();
-    await this.s.target.activate();
+    await this.s.target.activateOrLaunch(appId);
   }
 
-  async terminateApp(): Promise<boolean> {
-    return this.s.target.terminateLaunched();
+  async terminateApp(appId: string): Promise<boolean> {
+    return this.s.target.terminate(appId);
   }
 }

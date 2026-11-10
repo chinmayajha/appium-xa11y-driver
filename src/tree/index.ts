@@ -60,10 +60,6 @@ export class Tree {
 
   constructor(private target: Target, private platform: Platform) {}
 
-  forget(): void {
-    this.handles.clear();
-  }
-
   private place = async (node: Node): Promise<Placement> => ({
     rect: await this.platform.elementRect(node.el, node.top),
     id: this.platform.stableId(node.el),
