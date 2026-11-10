@@ -231,6 +231,15 @@ describe('session clean-up', () => {
   });
 });
 
+describe('session errors', () => {
+  test('a bad app path fails the session and Appium keeps running', async () => {
+    const codes = fx.platformName === 'Mac' ? ['session not created', 'invalid argument'] : ['session not created'];
+    await assert.rejects(open('/nonexistent/app-xa11y-test'), (e: unknown) => codes.includes((e as { code?: string }).code ?? ''));
+    const s = await open(fx.editor.app);
+    await s.delete();
+  });
+});
+
 describe('check box', { skip: !fx.checkBox && 'no fixture check box on this OS' }, () => {
   let s: Session;
 
