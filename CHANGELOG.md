@@ -19,6 +19,10 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 - An unknown W3C action type is an `invalid argument` error, and `pointerCancel` is an `unsupported operation` error. Before, the driver ignored them.
 - On macOS, a W3C `pointerDown` with no `pointerUp` right after it presses at the pointer, and a move while it is down is a drag. Before, it pressed at `(0, 0)`, on the Apple menu.
 
+### Changed
+
+- The `appium:failureArtifacts` folder keeps the 50 newest failures. Before, it had no limit.
+
 ## [0.1.0]
 
 - First release: macOS and Linux (X11); Windows experimental.
