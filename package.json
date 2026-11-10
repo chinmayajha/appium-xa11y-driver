@@ -1,8 +1,17 @@
 {
   "name": "appium-xa11y-driver",
   "version": "0.1.0",
-  "description": "Appium driver for native desktop apps on macOS, Windows and Linux, built on xa11y",
+  "description": "Appium driver for native desktop apps on macOS and Linux (Windows experimental), built on xa11y",
   "license": "MIT",
+  "author": "Chinmay Jha",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chinmayajha/appium-xa11y-driver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chinmayajha/appium-xa11y-driver/issues"
+  },
+  "homepage": "https://github.com/chinmayajha/appium-xa11y-driver#readme",
   "keywords": [
     "appium",
     "desktop",
@@ -31,15 +40,17 @@
     "mainClass": "Xa11yDriver"
   },
   "scripts": {
-    "build": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\" && tsc -p .",
+    "build": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "conformance": "npm run build && node scripts/conformance.mjs",
     "test": "npm run conformance --"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
   },
   "peerDependencies": {
-    "appium": "^3.0.0"
+    "appium": "^3.5.2"
   },
   "dependencies": {
     "@crowecawcaw/xa11y": "0.15.4",
@@ -47,6 +58,7 @@
     "xpath": "^0.0.36"
   },
   "devDependencies": {
+    "@appium/types": "^1.7.2",
     "@types/node": "^24.0.0",
     "appium": "^3.5.2",
     "typescript": "^5.9.0"

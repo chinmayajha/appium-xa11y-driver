@@ -1,6 +1,6 @@
 FROM debian:13
 WORKDIR /opt/appium-xa11y-driver
-COPY package.json package-lock.json tsconfig.json ./
+COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
 COPY src src
 COPY test test
 COPY scripts scripts

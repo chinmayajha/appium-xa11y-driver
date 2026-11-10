@@ -1,8 +1,8 @@
 # appium-xa11y-driver
 
-An [Appium 3](https://appium.io) driver for native desktop apps on macOS, Linux and Windows. It reads the accessibility tree of the operating system (AXUIElement, AT-SPI2, UI Automation) through [xa11y](https://github.com/xa11y/xa11y) and serves it over WebDriver.
+An [Appium 3](https://appium.io) driver for native desktop apps on macOS, Linux and Windows. Windows support is experimental: some calls are not supported yet (see Known gaps). It reads the accessibility tree of the operating system (AXUIElement, AT-SPI2, UI Automation) through [xa11y](https://github.com/xa11y/xa11y) and serves it over WebDriver.
 
-Appium and this driver run on the Host: the machine that shows the app. A Client (optics, a WebDriver test, an MCP server) connects over WebDriver. The terms are in [GLOSSARY.md](GLOSSARY.md). The design is in [ARCHITECTURE.md](ARCHITECTURE.md).
+Appium and this driver run on the Host: the machine that shows the app. A Client (optics, a WebDriver test, an MCP server) connects over WebDriver. The terms are in [GLOSSARY.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/GLOSSARY.md). The design is in [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/ARCHITECTURE.md).
 
 ## Install
 
@@ -108,14 +108,14 @@ After a pointer button is released, the driver waits until 50 ms have passed bef
 | A local VM or a cloud machine | the same script in the VM | an SSH tunnel to `127.0.0.1:4723` |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
 | Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`, then `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux` | `http://127.0.0.1:4723` |
-| CI | the script on the runner ([.github/workflows/ci.yml](.github/workflows/ci.yml)) | `127.0.0.1:4723` on the runner |
+| CI | the script on the runner ([.github/workflows/ci.yml](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/.github/workflows/ci.yml)) | `127.0.0.1:4723` on the runner |
 
 ### Where the Client runs
 
 Each WebDriver command is one round trip. Through a tunnel, the time of a suite increases with the latency.
 
 - To write and try a suite (optics live mode, natural-language mode, MCP), run the Client on your machine through the tunnel.
-- For jobs and CI, run the Client on the Host. [examples/optics-ci.yml](examples/optics-ci.yml) runs optics on the Host. [examples/optics/](examples/optics/) has a macOS TextEdit suite and a Linux Calculator suite.
+- For jobs and CI, run the Client on the Host. [examples/optics-ci.yml](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/examples/optics-ci.yml) runs optics on the Host. [examples/optics/](https://github.com/chinmayajha/appium-xa11y-driver/tree/main/examples/optics) has a macOS TextEdit suite and a Linux Calculator suite.
 
 On an instabox box, the conformance suite took 18.0 s with the Client on the Host and 77.0 s with the Client on a laptop through the tunnel.
 
@@ -131,7 +131,7 @@ Add `--os linux`, `--os mac` or `--os windows` when the Client and the Host have
 
 ## Adding an OS
 
-Read [ARCHITECTURE.md](ARCHITECTURE.md#adding-an-operating-system). In short: write a `Platform` in `src/platforms/`, add fixture apps to the conformance suite, write `hosts/<os>/setup.sh`, and add a CI job. For a call that the OS cannot do yet, throw `notSupportedYet('<os>', '<call>')`: the Client gets `Not supported yet on <os>: <call>`. Do not use the behavior of a different OS. The OS is supported when the conformance suite passes on a real Host.
+Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/ARCHITECTURE.md#adding-an-operating-system). In short: write a `Platform` in `src/platforms/`, add fixture apps to the conformance suite, write `hosts/<os>/setup.sh`, and add a CI job. For a call that the OS cannot do yet, throw `notSupportedYet('<os>', '<call>')`: the Client gets `Not supported yet on <os>: <call>`. Do not use the behavior of a different OS. The OS is supported when the conformance suite passes on a real Host.
 
 ## Known gaps
 
@@ -142,7 +142,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md#adding-an-operating-system). In short: wr
 - Linux, GTK 4: AT-SPI runs an action later in the main loop of the app. If you mix an Accessibility click and Raw input, the Raw input can arrive first.
 - macOS: a second process cannot take a screenshot while a different process holds a capture.
 
-[docs/xa11y-gaps.md](docs/xa11y-gaps.md) has each xa11y limit with a short repro, and the problems that come from other parts.
+[docs/xa11y-gaps.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/docs/xa11y-gaps.md) has each xa11y limit with a short repro, and the problems that come from other parts.
 
 ## License
 
