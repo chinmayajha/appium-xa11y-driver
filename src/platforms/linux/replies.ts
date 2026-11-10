@@ -6,6 +6,7 @@ interface Waiter<T> {
 /** Requests that wait for their replies on one socket, by serial number. */
 export class Replies<T> {
   private pending = new Map<number, Waiter<T>>();
+  private closeHandlers: Array<() => void> = [];
 
   constructor(private timeoutMs: number) {}
 
@@ -50,4 +51,38 @@ export class Replies<T> {
     }
     this.pending.clear();
   }
+
+  onClose(handler: () => void): void {
+    this.closeHandlers.push(handler);
+  }
+
+  /** The socket closed: fail every waiting request and tell the owners of the connection. */
+  closed(e: Error): void {
+    this.failAll(e);
+    for (const handler of this.closeHandlers.splice(0)) {
+      handler();
+    }
+  }
+}
+
+export interface Closable {
+  onClose(handler: () => void): void;
+}
+
+/** One connection, opened on first use and opened again after it closes or fails to open. */
+export function shared<T extends Closable>(open: () => Promise<T>): () => Promise<T> {
+  let current: Promise<T> | undefined;
+  return () => {
+    if (!current) {
+      const next = open();
+      current = next;
+      const forget = () => {
+        if (current === next) {
+          current = undefined;
+        }
+      };
+      next.then((c) => c.onClose(forget), forget);
+    }
+    return current;
+  };
 }

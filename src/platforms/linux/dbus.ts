@@ -147,8 +147,12 @@ export class Bus {
 
   private constructor(private socket: net.Socket) {
     socket.on('data', (chunk) => this.receive(chunk));
-    socket.on('close', () => this.replies.failAll(new Error('D-Bus connection closed')));
-    socket.on('error', (e) => this.replies.failAll(e));
+    socket.on('close', () => this.replies.closed(new Error('D-Bus connection closed')));
+    socket.on('error', (e) => this.replies.closed(e));
+  }
+
+  onClose(handler: () => void): void {
+    this.replies.onClose(handler);
   }
 
   static async connect(address: string): Promise<Bus> {

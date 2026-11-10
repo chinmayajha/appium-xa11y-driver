@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { createConnection, type Socket } from 'node:net';
-import { Replies } from './replies';
+import { Replies, shared } from './replies';
 
 const OP_INTERN_ATOM = 16;
 const OP_GET_PROPERTY = 20;
@@ -78,9 +78,13 @@ class X11 {
 
   private constructor(private socket: Socket, readonly root: number) {
     socket.on('data', (chunk) => this.receive(chunk));
-    socket.on('error', (e) => this.replies.failAll(e));
-    socket.on('close', () => this.replies.failAll(new Error('The X server closed the connection')));
+    socket.on('error', (e) => this.replies.closed(e));
+    socket.on('close', () => this.replies.closed(new Error('The X server closed the connection')));
     socket.unref();
+  }
+
+  onClose(handler: () => void): void {
+    this.replies.onClose(handler);
   }
 
   static connect(display: string): Promise<X11> {
@@ -172,15 +176,7 @@ class X11 {
   }
 }
 
-let client: Promise<X11> | undefined;
-
-function x11(): Promise<X11> {
-  client ??= X11.connect(process.env.DISPLAY ?? '').catch((e) => {
-    client = undefined;
-    throw e;
-  });
-  return client;
-}
+const x11 = shared(() => X11.connect(process.env.DISPLAY ?? ''));
 
 /** The client-side shadow around the app's X11 window titled `title`, or undefined unless exactly one window matches. */
 export async function frameExtents(pid: number, title: string): Promise<Frame | undefined> {

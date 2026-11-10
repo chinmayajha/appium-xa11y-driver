@@ -1,10 +1,10 @@
 import type { Element, Rect } from '@crowecawcaw/xa11y';
 import { Bus, type Reader } from './dbus';
+import { shared } from './replies';
 
 const COORD_WINDOW = 1;
 const ROOT_PATH = '/org/a11y/atspi/accessible/root';
 
-let bus: Promise<Bus> | undefined;
 const gtk4Apps = new Map<string, Promise<boolean>>();
 
 async function atspiAddress(): Promise<string> {
@@ -15,13 +15,7 @@ async function atspiAddress(): Promise<string> {
   return (await session.call('org.a11y.Bus', '/org/a11y/bus', 'org.a11y.Bus', 'GetAddress')).str();
 }
 
-function atspi(): Promise<Bus> {
-  bus ??= atspiAddress().then(Bus.connect).catch((e) => {
-    bus = undefined;
-    throw e;
-  });
-  return bus;
-}
+const atspi = shared(() => atspiAddress().then(Bus.connect));
 
 function variantString(r: Reader): string {
   r.sig();
