@@ -84,6 +84,19 @@ console.log((await (await xa11y.App.byName('gnome-text-editor')).windows()).leng
 
 Seen on Ubuntu 24.04 (GTK 4.14): `0`. The same occurs with `gnome-calculator`: the children of the application are two `group` elements (AT-SPI `generic`) with `active` false and bounds at (0, 0), and `activate()` gives `activate not supported on group`. The button "7" also has its bounds at (0, 0). Expected: one window, with its X11 position and an activate action. xa11y #485 (closed, not released) is related. GTK 4.18 on Debian 13 gives the role `window`. For this reason, the Docker image and the Linux CI job use Debian 13.
 
+### 15. xa11y does not reconnect after the AT-SPI bus restarts
+
+**Status on `main`:** fixed (xa11y #546, not released). On `main`, the next call opens a new connection, and an app that starts after the restart is found in the same process.
+
+Repro on Xfce (Debian 13), in one Node process: start mousepad, read its tree, then stop `at-spi-bus-launcher`, its `dbus-daemon` and `at-spi2-registryd`. Start a second mousepad, which starts the bus again.
+
+| | 0.15.4 | `main` |
+|---|---|---|
+| `App.list()`, 3 calls after the restart | `GetChildren failed: I/O error: Broken pipe (os error 32)` each time | `[]` each time, no error |
+| `App.byPid()` of the new mousepad | the same error | found, with one `window` child |
+
+A new process works with 0.15.4 too. Workaround: restart the process.
+
 ## macOS
 
 ### 8. An app with no window is its own child
