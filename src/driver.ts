@@ -106,7 +106,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
         this.app = await attach({ name: this.opts.appName }, timeout);
       }
     } catch (e) {
-      await super.deleteSession();
+      await this.deleteSession();
       throw asWebDriverError(e);
     }
     return result;
