@@ -27,7 +27,7 @@ die() { printf 'setup.sh: %s\n' "$*" >&2; exit 1; }
 node_ok() {
   command -v node >/dev/null && node -e '
     const [a, b] = process.versions.node.split(".").map(Number);
-    process.exit(a > 22 || (a === 22 && b >= 12) || (a === 20 && b >= 19) ? 0 : 1);'
+    process.exit(a >= 24 || (a === 22 && b >= 12) || (a === 20 && b >= 19) ? 0 : 1);'
 }
 
 own_node_ok() { [ "$("$XA11Y_HOME/node/bin/node" -v 2>/dev/null)" = "v$NODE_VERSION" ]; }
@@ -86,7 +86,8 @@ install_driver() {
   local current out
   current=$(installed_driver)
   if [ "$current" = "$source $spec" ]; then
-    if [ "$source" = npm ]; then
+    # An npm spec with a version or tag after the name is a pin, so only a bare name follows new releases.
+    if [ "$source" = npm ] && [[ "${spec#@}" != *@* ]]; then
       appium driver update xa11y >/dev/null 2>&1 || true
     fi
     log "The driver is installed from $source: $spec"
@@ -101,7 +102,7 @@ install_driver() {
 }
 
 write_env() {
-  printf 'ADDRESS=%q\nPORT=%q\nPATH=%q\n' "$ADDRESS" "$PORT" "$XA11Y_HOME/node/bin:$PATH" >"$XA11Y_HOME/host.env"
+  printf 'DRIVER=%q\nADDRESS=%q\nPORT=%q\nPATH=%q\n' "$DRIVER" "$ADDRESS" "$PORT" "$XA11Y_HOME/node/bin:$PATH" >"$XA11Y_HOME/host.env"
   install -m 0755 "${BASH_SOURCE[0]}" "$XA11Y_HOME/host.sh"
 }
 
@@ -111,6 +112,15 @@ probe_url() {
     *:*) printf 'http://[%s]:%s/status' "$ADDRESS" "$PORT" ;;
     *) printf 'http://%s:%s/status' "$ADDRESS" "$PORT" ;;
   esac
+}
+
+wait_for_appium() {
+  local _
+  for _ in $(seq 60); do
+    curl -sf "$(probe_url)" | grep -q '"ready"' && return 0
+    sleep 1
+  done
+  return 1
 }
 
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
@@ -137,11 +147,7 @@ install_agent() {
 EOF
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$AGENT"
-  local _
-  for _ in $(seq 60); do
-    curl -sf "$(probe_url)" >/dev/null && break
-    sleep 1
-  done
+  wait_for_appium || die "Appium did not start. See ~/Library/Logs/$LABEL.log"
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
 }
 
@@ -185,6 +191,12 @@ if [ "${1:-}" = run ]; then
   [ -f "$here/host.env" ] && XA11Y_HOME="$here"
   # shellcheck source=/dev/null
   . "$XA11Y_HOME/host.env"
+elif [ -f "$XA11Y_HOME/host.env" ]; then
+  # When setup runs again, it keeps the options of the last setup, and only the flags given now change them.
+  keep_path=$PATH
+  # shellcheck source=/dev/null
+  . "$XA11Y_HOME/host.env"
+  PATH=$keep_path
 fi
 while [ $# -gt 0 ]; do
   case "$1" in

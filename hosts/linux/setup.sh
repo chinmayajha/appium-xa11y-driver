@@ -56,7 +56,7 @@ install_packages() {
 node_ok() {
   command -v node >/dev/null && node -e '
     const [a, b] = process.versions.node.split(".").map(Number);
-    process.exit(a > 22 || (a === 22 && b >= 12) || (a === 20 && b >= 19) ? 0 : 1);'
+    process.exit(a >= 24 || (a === 22 && b >= 12) || (a === 20 && b >= 19) ? 0 : 1);'
 }
 
 install_node() {
@@ -109,7 +109,8 @@ install_driver() {
   local current out
   current=$(installed_driver)
   if [ "$current" = "$source $spec" ]; then
-    if [ "$source" = npm ]; then
+    # An npm spec with a version or tag after the name is a pin, so only a bare name follows new releases.
+    if [ "$source" = npm ] && [[ "${spec#@}" != *@* ]]; then
       appium driver update xa11y >/dev/null 2>&1 || true
     fi
     log "The driver is installed from $source: $spec"
@@ -125,8 +126,8 @@ install_driver() {
 
 write_env() {
   {
-    printf 'ADDRESS=%q\nPORT=%q\nDISPLAY_WANTED=%q\nSIZE=%q\nBEFORE=%q\nFIXTURES=%q\n' \
-      "$ADDRESS" "$PORT" "$DISPLAY_WANTED" "$SIZE" "$BEFORE" "$FIXTURES"
+    printf 'DRIVER=%q\nADDRESS=%q\nPORT=%q\nDISPLAY_WANTED=%q\nSIZE=%q\nBEFORE=%q\nFIXTURES=%q\n' \
+      "$DRIVER" "$ADDRESS" "$PORT" "$DISPLAY_WANTED" "$SIZE" "$BEFORE" "$FIXTURES"
     printf 'PATH=%q\n' "$XA11Y_HOME/node/bin:$PATH"
   } >"$XA11Y_HOME/host.env"
   install -m 0755 "${BASH_SOURCE[0]}" "$XA11Y_HOME/host.sh"
@@ -142,12 +143,22 @@ replace_unit() {
   mv "$old" "$old.replaced"
 }
 
-install_service() {
-  [ -n "$REPLACE" ] && replace_unit "$REPLACE"
+enable_linger() {
   if [ "$(loginctl show-user "$(id -un)" -p Linger --value 2>/dev/null)" != yes ]; then
     log "Turning on linger, so the service runs without a login"
     as_root loginctl enable-linger "$(id -un)"
   fi
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  local _
+  for _ in $(seq 20); do
+    has_user_systemd && return 0
+    sleep 0.5
+  done
+  return 1
+}
+
+install_service() {
+  [ -n "$REPLACE" ] && replace_unit "$REPLACE"
   mkdir -p "$HOME/.config/systemd/user"
   cat >"$HOME/.config/systemd/user/$UNIT" <<EOF
 [Unit]
@@ -180,7 +191,7 @@ probe_url() {
 wait_for_appium() {
   local _
   for _ in $(seq 60); do
-    curl -sf "$(probe_url)" >/dev/null && return 0
+    curl -sf "$(probe_url)" | grep -q '"ready"' && return 0
     sleep 1
   done
   return 1
@@ -195,9 +206,19 @@ setup() {
   install_node
   install_appium
   install_driver
+  # After a reboot the service can start before the desktop, so it must wait for that display, not start Xvfb.
+  local found
+  if [ -z "$DISPLAY_WANTED" ] && found=$(first_live_display) && [ "$found" != :99 ]; then
+    DISPLAY_WANTED=$found
+    log "Using the desktop display $found"
+  fi
   write_env
-  if [ "$SERVICE" = no ] || ! has_user_systemd; then
+  if [ "$SERVICE" = no ] || [ ! -d /run/systemd/system ]; then
     log "Installed. Start Appium inside the Desktop session with: $XA11Y_HOME/host.sh run"
+    return
+  fi
+  if ! enable_linger; then
+    log "Installed, but there is no service: the systemd user manager does not answer. Start Appium with: $XA11Y_HOME/host.sh run"
     return
   fi
   install_service
@@ -246,20 +267,27 @@ start_xvfb() {
   DISPLAY="$display"
 }
 
+first_live_display() {
+  local s
+  for s in /tmp/.X11-unix/X*; do
+    if [ -S "$s" ] && live_display "${s##*X}"; then
+      printf ':%s' "${s##*X}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 pick_display() {
   if [ -n "$DISPLAY_WANTED" ]; then
     wait_for_socket "$DISPLAY_WANTED" || die "no X server on $DISPLAY_WANTED"
     DISPLAY="$DISPLAY_WANTED"
     return
   fi
-  local s
-  for s in /tmp/.X11-unix/X*; do
-    if [ -S "$s" ] && live_display "${s##*X}"; then
-      DISPLAY=":${s##*X}"
-      [ "$DISPLAY" = :99 ] && [ -z "${XAUTHORITY:-}" ] && export XAUTHORITY="$XA11Y_HOME/Xauthority"
-      return
-    fi
-  done
+  if DISPLAY=$(first_live_display); then
+    [ "$DISPLAY" = :99 ] && [ -z "${XAUTHORITY:-}" ] && export XAUTHORITY="$XA11Y_HOME/Xauthority"
+    return
+  fi
   start_xvfb
 }
 
@@ -309,6 +337,12 @@ if [ "${1:-}" = run ]; then
   [ -f "$here/host.env" ] && XA11Y_HOME="$here"
   # shellcheck source=/dev/null
   . "$XA11Y_HOME/host.env"
+elif [ -f "$XA11Y_HOME/host.env" ]; then
+  # When setup runs again, it keeps the options of the last setup, and only the flags given now change them.
+  keep_path=$PATH
+  # shellcheck source=/dev/null
+  . "$XA11Y_HOME/host.env"
+  PATH=$keep_path
 fi
 while [ $# -gt 0 ]; do
   case "$1" in
