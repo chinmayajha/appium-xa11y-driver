@@ -95,4 +95,5 @@ export const mac: Platform = {
   },
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
+  identity: (el) => el.stableId ?? '',
 };

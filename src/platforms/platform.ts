@@ -29,6 +29,8 @@ export interface Platform {
   elementRect(el: Element, topLevel?: Element): Promise<Rect | null>;
   /** The Stable id, or an empty string when the app gives none. */
   stableId(el: Element): string;
+  /** A key that names one element for the life of the app process, or an empty string when there is none. */
+  identity(el: Element): string;
 }
 
 export function notSupportedYet(os: string, call: string): Error {

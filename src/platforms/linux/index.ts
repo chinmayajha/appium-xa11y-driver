@@ -77,4 +77,5 @@ export const linux: Platform = {
   elementRect,
   // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
   stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),
+  identity: (el) => `${String(el.raw.bus_name ?? '')}${String(el.raw.object_path ?? '')}`,
 };

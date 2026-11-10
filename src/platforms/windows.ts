@@ -22,4 +22,5 @@ export const windows: Platform = {
   releaseKeys: unproven('key release'),
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
+  identity: (el) => el.stableId ?? '',
 };
