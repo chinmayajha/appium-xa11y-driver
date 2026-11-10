@@ -3,19 +3,36 @@
   "version": "0.1.0",
   "description": "Appium driver for native desktop apps on macOS, Windows and Linux, built on xa11y",
   "license": "MIT",
-  "keywords": ["appium", "desktop", "accessibility", "automation", "macos", "windows", "linux"],
+  "keywords": [
+    "appium",
+    "desktop",
+    "accessibility",
+    "automation",
+    "macos",
+    "windows",
+    "linux"
+  ],
   "main": "./build/src/index.js",
   "types": "./build/src/index.d.ts",
-  "files": ["build/src", "README.md", "LICENSE"],
+  "files": [
+    "build/src",
+    "README.md",
+    "LICENSE"
+  ],
   "appium": {
     "driverName": "xa11y",
     "automationName": "Xa11y",
-    "platformNames": ["Mac", "Windows", "Linux"],
+    "platformNames": [
+      "Mac",
+      "Windows",
+      "Linux"
+    ],
     "mainClass": "Xa11yDriver"
   },
   "scripts": {
-    "build": "tsc -p .",
-    "test": "npm run build && node --test --test-concurrency=1 \"build/test/**/*.test.js\""
+    "build": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\" && tsc -p .",
+    "conformance": "npm run build && node scripts/conformance.mjs",
+    "test": "npm run conformance --"
   },
   "engines": {
     "node": ">=20.19.0"
