@@ -105,6 +105,14 @@ The image contains Debian 13, Xvfb, Openbox, the AT-SPI bus, Appium, the driver 
 
 3. Run the conformance suite again.
 
+## New xa11y releases
+
+The workflow `xa11y canary` runs each day. When npm has a newer xa11y than the version in `package.json`, it runs the Linux conformance suite with that release and opens one issue with the result. Then:
+
+1. Read [docs/xa11y-gaps.md](docs/xa11y-gaps.md). For each item that the release fixes, delete the workaround and update the item.
+2. Change the version of `@crowecawcaw/xa11y` in `package.json` and run `npm install`.
+3. Run the conformance suite on each OS.
+
 ## Rules
 
 - Write docs in ASD-STE100 Simplified Technical English.
