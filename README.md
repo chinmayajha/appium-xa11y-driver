@@ -55,7 +55,7 @@ appium driver install --source=npm appium-xa11y-driver
 | `appium:appName` | Attach to a running app by its name. If you do not give `app` or `appName`, the session attaches to the frontmost app. |
 | `appium:launchTimeout` | Milliseconds to wait for the app. The default is 20000. |
 | `appium:terminateOnDelete` | Stop the apps that the session started when the session ends. The default is `true`. |
-| `appium:failureArtifacts` | A folder on the Host. When a command fails, the driver saves the Page source and a screenshot there and writes their paths to the log. |
+| `appium:failureArtifacts` | A folder on the Host. When a command fails, the driver saves the Page source and a screenshot there and writes their paths to the log. The folder keeps the 50 newest failures. |
 
 ## Commands
 

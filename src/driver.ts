@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BaseDriver, errors } from 'appium/driver';
 import { util } from 'appium/support';
@@ -19,6 +19,8 @@ interface Session {
 }
 
 const DEFAULT_LAUNCH_TIMEOUT_MS = 20000;
+const MAX_FAILURES_KEPT = 50;
+const ARTIFACT_NAME = /^\d{4}-\d{2}-\d{2}T[\d-]+Z-\w+\.(xml|png)$/;
 
 export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   static executeMethodMap = {
@@ -106,6 +108,14 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     const warn = (e: Error) => this.log.warn(`${cmd} failed, and an artifact could not be saved: ${e.message}`);
     await mkdir(dir, { recursive: true }).catch(warn);
     await Promise.all([save('xml', () => tree.source()).catch(warn), save('png', () => this.screen.capture()).catch(warn)]);
+    await this.pruneFailures(dir).catch(warn);
+  }
+
+  /** Deletes the oldest artifacts of this driver, so the folder keeps the newest failures only; other files stay. */
+  private async pruneFailures(dir: string): Promise<void> {
+    const stems = [...new Set((await readdir(dir)).filter((f) => ARTIFACT_NAME.test(f)).map((f) => f.replace(/\.(xml|png)$/, '')))].sort();
+    const old = stems.slice(0, Math.max(0, stems.length - MAX_FAILURES_KEPT));
+    await Promise.all(old.flatMap((stem) => ['xml', 'png'].map((ext) => rm(path.join(dir, `${stem}.${ext}`), { force: true }))));
   }
 
   private get s(): Session {
