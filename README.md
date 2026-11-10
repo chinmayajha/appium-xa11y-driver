@@ -16,6 +16,12 @@ hosts/linux/setup.sh
 hosts/mac/setup.sh
 ```
 
+On Windows, in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File hosts\windows\setup.ps1
+```
+
 | Option | Meaning |
 |---|---|
 | `--driver <path>` | Install the driver from a checkout. The default is the npm package. |
@@ -24,9 +30,13 @@ hosts/mac/setup.sh
 | `--fixtures` (Linux) | Also install the apps that the conformance suite uses. |
 | `--display`, `--size`, `--before`, `--replace` (Linux) | Use a given display; set the Xvfb size; run a command before each start; replace an older systemd user unit. |
 
+The Windows script has the same options as PowerShell parameters: `-Driver`, `-Address`, `-Port` and `-NoService`. On Windows, the script installs the Visual C++ runtime when it is missing, and that needs an administrator one time.
+
 On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
 
 On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. The script shows the path to grant. Grant both permissions in System Settings > Privacy & Security, then restart Appium.
+
+On Windows the service is a logon task, `appium-xa11y`, of the user that runs the script. That user must be logged on to the desktop.
 
 To install by hand:
 

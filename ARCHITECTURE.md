@@ -83,7 +83,7 @@ One setup script per OS prepares a Host: [`hosts/`](hosts/). It installs Appium 
 | Local VM, cloud machine | the same script in the VM | SSH tunnel to `127.0.0.1:4723` |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
 | Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`: the image runs the Linux script | `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux`, then `http://127.0.0.1:4723` |
-| CI | Linux: the script in a `debian:13` container. macOS: `xa11y/setup-a11y`, then the script. Windows: Appium from npm, and the driver from the checkout. | `127.0.0.1:4723` on the runner |
+| CI | Linux: the script in a `debian:13` container. macOS: `xa11y/setup-a11y`, then the script. Windows: the script. | `127.0.0.1:4723` on the runner |
 | Managed VM | the VM's own agent starts the same Appium and driver | its WebDriver hub |
 
 **Where the Client runs.** Authoring (optics live, NL mode, MCP) runs on the user's machine through the tunnel. Jobs and CI run optics on the Host. On instabox the conformance suite took 77.0 s through the tunnel and 18.0 s on the Host.
@@ -92,7 +92,7 @@ One setup script per OS prepares a Host: [`hosts/`](hosts/). It installs Appium 
 
 1. Write `src/platforms/<os>.ts` (or a `src/platforms/<os>/` folder) and register it in `src/platforms/index.ts`.
 2. Add the OS's fixture apps to the conformance suite.
-3. Write `hosts/<os>/setup.sh`.
+3. Write `hosts/<os>/setup.sh` (`setup.ps1` on Windows).
 4. In optics, add a `PlatformProfile` for it (data only).
 5. Add a CI matrix row.
 
