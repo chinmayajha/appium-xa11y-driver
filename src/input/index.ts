@@ -12,6 +12,12 @@ const CONTROL_KEYS: Record<string, string> = { '\n': 'Enter', '\r': 'Enter', '\t
 // A check costs a round trip to the accessibility API, so events closer together than this share one.
 const GUARD_INTERVAL_MS = 100;
 
+/** A W3C key code that stands for a character, such as the numpad keys, becomes that character. */
+function typedChar(ch: string): string {
+  const key = isSpecialKey(ch) ? w3cKey(ch) : ch;
+  return [...key].length === 1 ? key : ch;
+}
+
 function keyFor(ch: string, viaValue: boolean): string | undefined {
   if (isSpecialKey(ch)) {
     return w3cKey(ch);
@@ -48,10 +54,10 @@ export class Input {
     const el = id === undefined ? undefined : await this.focus(id);
     let viaValue = Boolean(el && (el.editable || el.actions.includes('set_value')));
     let run = '';
-    for (const ch of text) {
+    for (const ch of [...text].map(typedChar)) {
       const key = keyFor(ch, viaValue);
-      if (!key || [...key].length === 1) {
-        run += key ?? ch;
+      if (!key) {
+        run += ch;
         continue;
       }
       await this.typeRun(run, viaValue ? el : undefined);

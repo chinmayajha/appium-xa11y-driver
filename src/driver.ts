@@ -97,16 +97,15 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     if (!dir || !this.session) {
       return;
     }
+    const { tree } = this.session;
     const base = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${cmd}`);
-    try {
-      await mkdir(dir, { recursive: true });
-      const parts = await Promise.allSettled([this.session.tree.source(), this.screen.capture()]);
-      const saved = parts.flatMap((p, i) => (p.status === 'fulfilled' ? [{ file: `${base}.${i ? 'png' : 'xml'}`, data: p.value }] : []));
-      await Promise.all(saved.map(({ file, data }) => writeFile(file, data)));
-      this.log.info(`${cmd} failed; saved ${saved.map((f) => f.file).join(' and ') || 'nothing'}`);
-    } catch (e) {
-      this.log.warn(`${cmd} failed, and its artifacts could not be saved: ${(e as Error).message}`);
-    }
+    const save = async (ext: string, data: () => Promise<string | Buffer>) => {
+      await writeFile(`${base}.${ext}`, await data());
+      this.log.info(`${cmd} failed; saved ${base}.${ext}`);
+    };
+    const warn = (e: Error) => this.log.warn(`${cmd} failed, and an artifact could not be saved: ${e.message}`);
+    await mkdir(dir, { recursive: true }).catch(warn);
+    await Promise.all([save('xml', () => tree.source()).catch(warn), save('png', () => this.screen.capture()).catch(warn)]);
   }
 
   private get s(): Session {

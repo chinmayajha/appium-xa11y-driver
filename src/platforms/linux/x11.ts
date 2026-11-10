@@ -58,13 +58,13 @@ function readAuthority(): Buffer | undefined {
 
 const forDisplay = (number: Buffer, display: string) => number.length === 0 || number.toString() === display;
 
+const isThisHost = (e: AuthEntry, host: string) => e.family === FAMILY_WILD || (e.family === FAMILY_LOCAL && e.address === host);
+
 /** The cookie that libXau would pick: a local entry for this host or a wildcard entry first, then any entry for the display. */
 function cookie(display: string): Buffer | undefined {
-  const data = readAuthority();
-  const fits = data ? [...authEntries(data)].filter((e) => e.name === COOKIE_AUTH && forDisplay(e.number, display)) : [];
-  const host = hostname();
-  const best = fits.find((e) => e.family === FAMILY_WILD || (e.family === FAMILY_LOCAL && e.address === host));
-  return (best ?? fits[0])?.data;
+  const data = readAuthority() ?? Buffer.alloc(0);
+  const fits = [...authEntries(data)].filter((e) => e.name === COOKIE_AUTH && forDisplay(e.number, display));
+  return (fits.find((e) => isThisHost(e, hostname())) ?? fits[0])?.data;
 }
 
 function setupRequest(secret?: Buffer): Buffer {
@@ -126,12 +126,10 @@ class X11 {
           reject(new Error(`The X server refused the connection: ${setup.subarray(8, 8 + setup[1]).toString()}`));
           return;
         }
-        try {
-          resolve(new X11(socket, rootOf(setup)));
-        } catch (e) {
+        Promise.resolve(setup).then(rootOf).then((root) => resolve(new X11(socket, root)), (e: Error) => {
           socket.destroy();
-          reject(new Error(`The X server sent a setup reply that cannot be read: ${(e as Error).message}`));
-        }
+          reject(new Error(`The X server sent a setup reply that cannot be read: ${e.message}`));
+        });
       };
       socket.on('data', onData);
       socket.once('error', (e) => {

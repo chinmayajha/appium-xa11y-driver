@@ -62,8 +62,8 @@ export class Target {
 
   /** xa11y names the window manager as the foreground app on X11, so the app with the active window wins where one has it. */
   private async frontmost(timeoutMs: number): Promise<App> {
-    const front = await App.foreground({ timeout: timeoutMs }).catch((e: Error) => e);
-    if (!(front instanceof Error) && await this.platform.isFrontmost(front).catch(() => true)) {
+    const front = await App.foreground({ timeout: timeoutMs }).catch(() => undefined);
+    if (front && await this.platform.isFrontmost(front).catch(() => true)) {
       return front;
     }
     for (const app of await App.list()) {
@@ -71,10 +71,7 @@ export class Target {
         return app;
       }
     }
-    if (front instanceof Error) {
-      throw front;
-    }
-    return front;
+    return front ?? App.foreground({ timeout: 0 });
   }
 
   async activate(): Promise<void> {

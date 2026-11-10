@@ -22,14 +22,17 @@ function run(argv) {
 // macOS keeps the flags of the last synthetic key in its session state, and the next synthetic key copies them.
 // A key-up made while that state still holds other released keys keeps them, so a modifier can stay down.
 // A key that keeps Fn turns xa11y text (sent on the A key code) into Fn+A, which moves the focus to the Dock.
+// A post at the HID tap clears only the HID state, and the combined session state needs its own post at the session tap.
 const CLEAR_FLAGS = `ObjC.import('CoreGraphics');
 function run(argv) {
   const mask = Number(argv[0]);
   const state = () => Number($.CGEventSourceFlagsState(0)) | Number($.CGEventSourceFlagsState(1));
-  const e = $.CGEventCreateKeyboardEvent(null, 63, false);
-  $.CGEventSetType(e, 12);
-  $.CGEventSetFlags(e, state() & ~mask);
-  $.CGEventPost($.kCGHIDEventTap, e);
+  for (const tap of [$.kCGHIDEventTap, $.kCGSessionEventTap]) {
+    const e = $.CGEventCreateKeyboardEvent(null, 63, false);
+    $.CGEventSetType(e, 12);
+    $.CGEventSetFlags(e, state() & ~mask);
+    $.CGEventPost(tap, e);
+  }
   const end = Date.now() + 1000;
   while (state() & mask) {
     if (Date.now() > end) {
@@ -76,6 +79,6 @@ export async function postPixelScroll(at: { x: number; y: number }, dx: number, 
 export async function clearFlags(keys: string[]): Promise<void> {
   const mask = keys.reduce((m, k) => m | (KEY_FLAGS[k] ?? 0), 0);
   if (mask && (await jxa(CLEAR_FLAGS, [mask])).stdout.trim() === 'held') {
-    throw new errors.UnknownError(`The modifier flags of ${keys.join(', ')} are still set 1 s after their release`);
+    throw new errors.UnknownError(`${keys.join(', ')} still held 1 s after the release, so the next key would carry them`);
   }
 }

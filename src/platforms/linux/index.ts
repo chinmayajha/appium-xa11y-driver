@@ -70,10 +70,9 @@ async function elementRect(el: Element, topLevel?: Element): Promise<Rect | null
 }
 
 async function windowShadow(win: Element): Promise<Frame> {
-  if (!(await isGtk4(String(win.raw.bus_name))) || win.pid === null) {
-    return NO_FRAME;
-  }
-  return (await frameExtents(win.pid, win.name ?? '').catch(() => undefined)) ?? NO_FRAME;
+  const gtk4 = await isGtk4(String(win.raw.bus_name));
+  const frame = gtk4 && win.pid !== null ? await frameExtents(win.pid, win.name ?? '').catch(() => undefined) : undefined;
+  return frame ?? NO_FRAME;
 }
 
 async function hasActiveWindow(app: App): Promise<boolean> {
