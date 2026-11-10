@@ -61,6 +61,18 @@ export class Session {
     return this.call('GET', `/element/${el}/selected`);
   }
 
+  displayed(el: string): Promise<boolean> {
+    return this.call('GET', `/element/${el}/displayed`);
+  }
+
+  enabled(el: string): Promise<boolean> {
+    return this.call('GET', `/element/${el}/enabled`);
+  }
+
+  async active(): Promise<string> {
+    return (await this.call<Record<string, string>>('GET', '/element/active'))[ELEMENT];
+  }
+
   rect(el: string): Promise<Rect> {
     return this.call('GET', `/element/${el}/rect`);
   }
@@ -75,6 +87,18 @@ export class Session {
 
   actions(actions: unknown[]): Promise<unknown> {
     return this.call('POST', '/actions', { actions });
+  }
+
+  releaseActions(): Promise<unknown> {
+    return this.call('DELETE', '/actions');
+  }
+
+  activateApp(appId: string): Promise<unknown> {
+    return this.call('POST', '/appium/device/activate_app', { appId });
+  }
+
+  terminateApp(appId: string): Promise<boolean> {
+    return this.call('POST', '/appium/device/terminate_app', { appId });
   }
 
   async screenshot(el?: string): Promise<Buffer> {
