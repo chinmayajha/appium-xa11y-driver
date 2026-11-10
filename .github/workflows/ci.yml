@@ -97,6 +97,17 @@ jobs:
           sudo launchctl stop com.apple.tccd || true
           sleep 2
       - run: hosts/mac/setup.sh --driver . --no-service
+      - name: "[DEBUG-mac1] Grant the permissions to the Node that runs Appium"
+        run: |
+          CLIENT=$("$HOME/Library/Application Support/appium-xa11y/node/bin/node" -p 'require("fs").realpathSync(process.execPath)')
+          echo "client: $CLIENT"
+          for service in kTCCServiceAccessibility kTCCServicePostEvent kTCCServiceScreenCapture; do
+            sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+              "INSERT OR REPLACE INTO access(service,client,client_type,auth_value,auth_reason,auth_version,csreq,policy_id,indirect_object_identifier_type,indirect_object_identifier,indirect_object_code_identity,flags,last_modified) \
+               VALUES('${service}','${CLIENT}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
+          done
+          sudo launchctl stop com.apple.tccd || true
+          sleep 2
       - name: Start Appium
         run: |
           "$HOME/Library/Application Support/appium-xa11y/host.sh" run > appium.log 2>&1 &
