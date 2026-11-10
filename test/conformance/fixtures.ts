@@ -2,7 +2,7 @@
 export interface Fixtures {
   platformName: string;
   primary: string;
-  editor: { app: string; field: string; siblingBefore?: string };
+  editor: { app: string; field: string; lineStart: string; siblingBefore?: string };
   calculator: { app: string; buttons: Record<'C' | '7' | '5' | '+' | '=', string>; stableId?: { id: string; name: string } };
   checkBox?: { app: string; xpath: string };
 }
@@ -11,7 +11,7 @@ const fixtures: Record<string, Fixtures> = {
   mac: {
     platformName: 'Mac',
     primary: '',
-    editor: { app: 'com.apple.TextEdit', field: '//text_area', siblingBefore: 'primary+ctrl+r' },
+    editor: { app: 'com.apple.TextEdit', field: '//text_area', lineStart: 'primary+left', siblingBefore: 'primary+ctrl+r' },
     calculator: {
       app: 'com.apple.calculator',
       buttons: { C: "//button[@id='AllClear' or @id='Clear']", 7: "//button[@id='Seven']", 5: "//button[@id='Five']", '+': "//button[@id='Add']", '=': "//button[@id='Equals']" },
@@ -22,7 +22,7 @@ const fixtures: Record<string, Fixtures> = {
   linux: {
     platformName: 'Linux',
     primary: '',
-    editor: { app: 'mousepad', field: '//text_area' },
+    editor: { app: 'mousepad', field: '//text_area', lineStart: 'Home' },
     calculator: {
       app: 'gnome-calculator',
       buttons: { C: "//button[@name='C']", 7: "//button[@name='7']", 5: "//button[@name='5']", '+': "//button[@name='+']", '=': "//button[@name='=']" },
@@ -32,7 +32,7 @@ const fixtures: Record<string, Fixtures> = {
   windows: {
     platformName: 'Windows',
     primary: '',
-    editor: { app: 'notepad.exe', field: '(//document|//text_area)[1]' },
+    editor: { app: 'notepad.exe', field: '(//document|//text_area)[1]', lineStart: 'Home' },
     calculator: {
       app: 'calc.exe',
       buttons: { C: "//button[@id='clearButton']", 7: "//button[@id='num7Button']", 5: "//button[@id='num5Button']", '+': "//button[@id='plusButton']", '=': "//button[@id='equalButton']" },

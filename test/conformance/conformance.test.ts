@@ -105,7 +105,7 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'u');
     await s.actions(keyboard([{ type: 'keyDown', value: fx.primary }, ...keys('a'), { type: 'keyUp', value: fx.primary }, ...keys('u', 'b', 'i')]));
     await eventually(text, (v) => v === 'ubi');
-    await s.execute('xa11y: chord', { keys: 'Home' });
+    await s.execute('xa11y: chord', { keys: fx.editor.lineStart });
     await s.execute('xa11y: typeText', { text: 'k' });
     await eventually(text, (v) => v === 'kubi');
   });
