@@ -58,3 +58,8 @@ export async function clearFlags(keys: string[]): Promise<void> {
     await jxa(CLEAR_FLAGS, [mask]);
   }
 }
+
+export async function flagsNow(): Promise<string> {
+  const { stdout } = await jxa("ObjC.import('CoreGraphics'); function run() { return [0, 1].map((s) => Number($.CGEventSourceFlagsState(s)).toString(16)).join('/'); }", []);
+  return stdout.trim();
+}

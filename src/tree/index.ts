@@ -194,6 +194,9 @@ export class Tree {
   private indexOf(el: Element, kids: Element[], at: number): number {
     const id = this.platform.identity(el);
     const same = id ? kids.flatMap((k, i) => (this.platform.identity(k) === id ? [i] : [])) : [];
+    if (same.length === 1 && same[0] !== at) {
+      console.error(`[DEBUG-mac3] ${id} moved from ${at} to ${same[0]}`);
+    }
     return same.length === 1 ? same[0] : at;
   }
 

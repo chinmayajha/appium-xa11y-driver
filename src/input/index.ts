@@ -76,6 +76,9 @@ export class Input {
     }
     await this.guard();
     await this.sim.typeText(run);
+    if (this.platform.os === 'macos' && run.length < 20) {
+      console.error(`[DEBUG-mac3] raw text ${JSON.stringify(run)}: front ${await this.platform.frontmostName()}`);
+    }
   }
 
   async clear(id: string): Promise<void> {
