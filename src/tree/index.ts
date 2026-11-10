@@ -30,6 +30,17 @@ function intersect(a: Rect, b: Rect): Rect | null {
   return width > 0 && height > 0 ? { x, y, width, height } : null;
 }
 
+function clip(r: Rect, container: Rect | null, role: string): Rect {
+  if (!container) {
+    return r;
+  }
+  const shown = intersect(r, container);
+  if (!shown) {
+    throw new errors.ElementNotInteractableError(`The ${role} element is outside the visible part of its container`);
+  }
+  return shown;
+}
+
 function rawAttribute(el: Element, name: string): string | null {
   const raw = el.raw[name];
   return raw === undefined || raw === null ? null : String(raw);
@@ -89,14 +100,7 @@ export class Tree {
       throw new errors.InvalidElementStateError(`The ${el.role} element has no bounds on the screen`);
     }
     for (let p = await el.parent(); p; p = await p.parent()) {
-      const pr = p.role === 'application' ? null : await this.platform.elementRect(p, top);
-      if (pr) {
-        const shown = intersect(r, pr);
-        if (!shown) {
-          throw new errors.ElementNotInteractableError(`The ${el.role} element is outside the visible part of its container`);
-        }
-        r = shown;
-      }
+      r = clip(r, p.role === 'application' ? null : await this.platform.elementRect(p, top), el.role);
     }
     return r;
   }
