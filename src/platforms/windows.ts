@@ -1,4 +1,4 @@
-import { rawString, spawnApp } from './common';
+import { rawString, spawnApp, tap } from './common';
 import { notSupportedYet, type Platform } from './platform';
 
 const unproven = (call: string) => async (): Promise<never> => {
@@ -19,6 +19,7 @@ export const windows: Platform = {
   frontmostName: async () => undefined,
   activate: unproven('window activation'),
   wheel: unproven('wheel input'),
+  pressKey: tap,
   releaseKeys: unproven('key release'),
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',

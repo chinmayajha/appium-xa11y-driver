@@ -5,10 +5,12 @@ import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString } from './common';
-import { postPixelScroll, waitForModifierRelease } from './mac-events';
+import { clearFunctionFlags, postPixelScroll, waitForModifierRelease } from './mac-events';
 import type { Platform } from './platform';
 
 const run = promisify(execFile);
+const FUNCTION_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Delete', 'Insert',
+  ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`)]);
 const APP_DIRS = ['/Applications', '/System/Applications', '/System/Applications/Utilities', `${process.env.HOME}/Applications`];
 
 async function out(cmd: string, args: string[]): Promise<string> {
@@ -93,9 +95,18 @@ export const mac: Platform = {
     await input.moveTo([at.x, at.y]);
     await postPixelScroll(at, dx, dy);
   },
+  async pressKey(input, key) {
+    await input.press(key);
+    if (FUNCTION_KEYS.has(key)) {
+      await clearFunctionFlags();
+    }
+  },
   async releaseKeys(input, keys) {
     await keyUps(input, keys);
     await waitForModifierRelease(keys);
+    if (keys.some((k) => FUNCTION_KEYS.has(k))) {
+      await clearFunctionFlags();
+    }
   },
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',

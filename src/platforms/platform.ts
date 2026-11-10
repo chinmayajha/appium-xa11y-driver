@@ -23,6 +23,8 @@ export interface Platform {
   activate(app: App, window?: Element): Promise<void>;
   /** Scroll by W3C wheel deltas in pixels: positive dx goes right, positive dy goes down. */
   wheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void>;
+  /** Tap a key and return when the next synthetic key can no longer carry its flags. */
+  pressKey(input: InputSim, key: string): Promise<void>;
   /** Release keys and return when the next synthetic key can no longer carry them. */
   releaseKeys(input: InputSim, keys: string[]): Promise<void>;
   /** Bounds in Desktop coordinates, or null when the toolkit gives none that can be trusted. */

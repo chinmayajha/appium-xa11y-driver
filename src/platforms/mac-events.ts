@@ -18,11 +18,20 @@ function run(argv) {
   $.CGEventPost($.kCGHIDEventTap, e);
 }`;
 
-const WAIT_FLAGS_CLEAR = `ObjC.import('CoreGraphics');
+// macOS keeps the flags of the last synthetic key in its session state, and the next synthetic key copies them.
+// A key that carries Fn turns xa11y text (sent on the A key code) into Fn+A, which moves the focus to the Dock.
+const SETTLE_FLAGS = `ObjC.import('CoreGraphics');
 function run(argv) {
-  const mask = Number(argv[0]);
+  const [mask, clear] = argv.map(Number);
+  const state = () => Number($.CGEventSourceFlagsState(0)) | Number($.CGEventSourceFlagsState(1));
+  if (clear) {
+    const e = $.CGEventCreateKeyboardEvent(null, 63, false);
+    $.CGEventSetType(e, 12);
+    $.CGEventSetFlags(e, state() & ~mask);
+    $.CGEventPost($.kCGHIDEventTap, e);
+  }
   const end = Date.now() + 1000;
-  while ((Number($.CGEventSourceFlagsState(0)) | Number($.CGEventSourceFlagsState(1))) & mask) {
+  while (state() & mask) {
     if (Date.now() > end) {
       return 'held';
     }
@@ -32,6 +41,7 @@ function run(argv) {
 }`;
 
 const FLAG_MASKS: Record<string, number> = { Shift: 0x20000, Ctrl: 0x40000, Alt: 0x80000, Meta: 0x100000 };
+const FUNCTION_FLAGS = 0x800000 | 0x200000;
 
 /** Post a W3C wheel delta in pixels: positive dx goes right, positive dy goes down. */
 export async function postPixelScroll(at: { x: number; y: number }, dx: number, dy: number): Promise<void> {
@@ -42,6 +52,11 @@ export async function postPixelScroll(at: { x: number; y: number }, dx: number, 
 export async function waitForModifierRelease(keys: string[]): Promise<void> {
   const mask = keys.reduce((m, k) => m | (FLAG_MASKS[k] ?? 0), 0);
   if (mask) {
-    await jxa(WAIT_FLAGS_CLEAR, [mask]);
+    await jxa(SETTLE_FLAGS, [mask, 0]);
   }
+}
+
+/** Clear the Fn and keypad flags that macOS gives arrow, Home, End, page and F keys. */
+export async function clearFunctionFlags(): Promise<void> {
+  await jxa(SETTLE_FLAGS, [FUNCTION_FLAGS, 1]);
 }

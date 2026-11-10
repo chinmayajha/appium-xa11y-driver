@@ -52,6 +52,10 @@ export async function lineWheel(input: InputSim, at: Point, dx: number, dy: numb
   await input.scroll([at.x, at.y], wheelLines(dx), wheelLines(dy));
 }
 
+export async function tap(input: InputSim, key: string): Promise<void> {
+  await input.press(key);
+}
+
 export async function keyUps(input: InputSim, keys: string[]): Promise<void> {
   for (const k of keys) {
     await input.keyUp(k);

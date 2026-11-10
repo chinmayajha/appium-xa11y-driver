@@ -58,7 +58,7 @@ export class Input {
       viaValue = false;
       run = '';
       await this.guard();
-      await this.sim.press(key);
+      await this.platform.pressKey(this.sim, key);
     }
     await this.typeRun(run, viaValue ? el : undefined);
   }

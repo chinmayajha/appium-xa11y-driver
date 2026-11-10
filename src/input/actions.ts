@@ -123,7 +123,7 @@ const ACTIONS: Record<string, Handler> = {
   async keyDown(ctx, a, next) {
     const key = w3cKey(a.value ?? '');
     if (pairedKeyUp(key, next)) {
-      await ctx.input.press(key);
+      await ctx.platform.pressKey(ctx.input, key);
       return true;
     }
     ctx.state.keys.add(key);
@@ -150,7 +150,7 @@ export async function pressChord(platform: Platform, input: InputSim, key: strin
       await input.keyDown(m);
       down.push(m);
     }
-    await input.press(key);
+    await platform.pressKey(input, key);
   } finally {
     await platform.releaseKeys(input, down.reverse());
   }

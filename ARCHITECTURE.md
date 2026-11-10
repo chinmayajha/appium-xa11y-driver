@@ -34,7 +34,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `releaseKeys`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `terminate` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `terminate` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. The guard only checks: it never activates a window. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
@@ -53,7 +53,8 @@ The seam has real adapters for macOS and Linux and a Windows adapter that report
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | not yet |
 | `activate` | xa11y window activate | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | not yet |
-| `releaseKeys` | wait until the event source reports the modifiers up | xa11y key up | not yet |
+| `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, clear the Fn and keypad flags | xa11y key tap | xa11y key tap |
+| `releaseKeys` | wait until the event source reports the modifiers up; clear the Fn and keypad flags as `pressKey` does | xa11y key up | not yet |
 | `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |
 | `stableId` | AX identifier | none (xa11y gives the AT-SPI object path, which changes each time the app starts) | AutomationId |
 | `identity` | AX identifier; when it is empty, the handle checks the name | D-Bus name and AT-SPI object path. They are the same while the app runs. | AutomationId |

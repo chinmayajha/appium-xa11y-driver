@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
-import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp } from '../common';
+import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp, tap } from '../common';
 import type { Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -85,6 +85,7 @@ export const linux: Platform = {
   },
   activate: activateWindow,
   wheel: lineWheel,
+  pressKey: tap,
   releaseKeys: keyUps,
   elementRect,
   // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
