@@ -52,7 +52,7 @@ export class Input {
   /** Put text into the element, or type it into the Frontmost app when no element is given. */
   async type(text: string, id?: string): Promise<void> {
     const el = id === undefined ? undefined : await this.focus(id);
-    let viaValue = Boolean(el && (el.editable || el.actions.includes('set_value')));
+    let viaValue = this.platform.typeTextMovesCaret && Boolean(el && (el.editable || el.actions.includes('set_value')));
     let run = '';
     for (const ch of [...text].map(typedChar)) {
       const key = keyFor(ch, viaValue);

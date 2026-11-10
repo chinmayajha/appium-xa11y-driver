@@ -1,6 +1,6 @@
 # appium-xa11y-driver
 
-An [Appium 3](https://appium.io) driver for native desktop apps on macOS, Linux and Windows. Windows support is experimental: some calls are not supported yet (see Known gaps). It reads the accessibility tree of the operating system (AXUIElement, AT-SPI2, UI Automation) through [xa11y](https://github.com/xa11y/xa11y) and serves it over WebDriver.
+An [Appium 3](https://appium.io) driver for native desktop apps on macOS, Linux and Windows. On Windows it is proven only on Windows Server 2022 (see Known gaps). It reads the accessibility tree of the operating system (AXUIElement, AT-SPI2, UI Automation) through [xa11y](https://github.com/xa11y/xa11y) and serves it over WebDriver.
 
 Appium and this driver run on the Host: the machine that shows the app. A Client (optics, a WebDriver test, an MCP server) connects over WebDriver. The terms are in [GLOSSARY.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/GLOSSARY.md). The design is in [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/ARCHITECTURE.md).
 
@@ -40,7 +40,7 @@ appium driver install --source=npm appium-xa11y-driver
 |---|---|
 | `platformName` | `Mac`, `Linux` or `Windows` |
 | `appium:automationName` | `Xa11y` |
-| `appium:app` | The app to start: an `.app` path or a bundle id on macOS, an executable on Linux. Not supported yet on Windows. The session attaches to the new process. |
+| `appium:app` | The app to start: an `.app` path or a bundle id on macOS, an executable on Linux and Windows. The session attaches to the new process. On Windows, when the executable is a launcher that exits, for example `calc.exe`, the session attaches to the app that the launcher started. |
 | `appium:appArguments` | Arguments for `appium:app` |
 | `appium:appName` | Attach to a running app by its name. If you do not give `app` or `appName`, the session attaches to the frontmost app. |
 | `appium:launchTimeout` | Milliseconds to wait for the app. The default is 20000. |
@@ -91,7 +91,7 @@ Bounds, screenshots and pointer actions use one space: the Desktop coordinates o
 
 ### Input
 
-The driver uses an Accessibility action first. Send keys to an editable element sets the text through the accessibility API, and a click on a button uses its press action. Then the app can stay behind other windows.
+The driver uses an Accessibility action first. Send keys to an editable element sets the text through the accessibility API, and a click on a button uses its press action. Then the app can stay behind other windows. On Windows, send keys is Raw input (see Known gaps).
 
 Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press action are Raw input. A special key in send keys, for example Backspace, is Raw input too, and the text after it is also Raw input, so that all of it arrives in order. The OS sends Raw input to the frontmost app. So the driver sends Raw input only when the Session app is frontmost. It checks before each event and does not bring the app to the front. If a different app is in front, for example a system alert, the command fails with `invalid element state` and sends nothing. To bring the Session app to the front, use `activateApp` or `xa11y: focusWindow`.
 
@@ -149,7 +149,9 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 
 ## Known gaps
 
-- Windows: the adapter is not proven on a real Host. App launch (`appium:app`, `xa11y: launch`), `activateApp`, `terminateApp`, the Frontmost check, activation, the wheel and key release are not supported yet. Attach with `appium:appName`.
+- Windows: proven only on Windows Server 2022, with Notepad and the classic Calculator. Not run on Windows 10 or 11, where `calc.exe` starts a different Calculator app.
+- Windows: send keys is Raw input, so the app must be frontmost. xa11y types through UI Automation at the caret, but it does not move the caret ([docs/xa11y-gaps.md](docs/xa11y-gaps.md), Windows item 16).
+- Windows: the xa11y binary needs the Microsoft Visual C++ 2015–2022 runtime. A clean Windows Server does not have it.
 - Linux: only X11. On Wayland, GTK 4 elements have no bounds.
 - Linux: GTK 4 apps are proven on GTK 4.18 (Debian 13). On GTK 4.14 (Ubuntu 24.04), GTK 4 apps have no window and their elements have no bounds, so window commands, pointer actions and element screenshots fail. GTK 3 apps work on Ubuntu 24.04. Docker and CI use Debian 13.
 - Linux: elements have no Stable id.

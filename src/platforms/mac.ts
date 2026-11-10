@@ -114,6 +114,7 @@ export const mac: Platform = {
   platformRole: (el) => rawString(el, 'ax_role'),
   scrollTypes: new Set(['AXScrollArea']),
   settleAfterReleaseMs: 0,
+  typeTextMovesCaret: true,
   terminate: quit,
   async runningPid(appId) {
     const bundle = isBundlePath(appId) ? realpathSync(appId) : undefined;

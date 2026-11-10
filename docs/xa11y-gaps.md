@@ -141,6 +141,36 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver.
 
+## Windows
+
+Seen on Windows Server 2022 (build 20348), in the console session. The status on `main` is not checked: `main` was not built on Windows.
+
+### 16. Element `typeText` does not move the caret
+
+```js
+const app = await xa11y.App.byPid(notepadPid);
+const edit = async () => (await (await app.windows())[0].children()).find((k) => k.role === 'web_area');
+await (await edit()).typeText('ab');
+await (await edit()).typeText('c');
+console.log((await edit()).value);
+```
+
+Seen: `cab`, and the Notepad status bar stays at `Ln 1, Col 1`. Expected: `abc`, because the docs say "type at the current caret position". Raw input after the call also goes before the text. The driver types as Raw input on Windows.
+
+### 17. The wheel scrolls up for a positive `dy`
+
+The docs say: "`dy` positive → content scrolls down". On Linux a positive `dy` scrolls the view down. On Windows, `inputSim().scroll(at, 0, 30)` over Notepad, at the end of 200 lines, moves the value of the vertical scroll bar from 100 to 46. The driver negates `dy` on Windows.
+
+### 18. `stableId` is the window handle of a Win32 control
+
+```js
+const app = await xa11y.App.byName('win32calc');
+const seven = await app.locator('button[name="7"]').element();
+console.log(seven.stableId, seven.raw.automation_id);
+```
+
+Seen: `hwnd:0x4013c 137`. The handle changes each time the app starts, and the AutomationId stays the same. Expected: the AutomationId, as for elements with no handle (for example `TitleBar`). The driver uses `raw.automation_id` as the Stable id.
+
 ## Node bindings
 
 ### 14. Typed errors lose their error code
@@ -174,4 +204,7 @@ Seen: `InvalidActionDataError undefined`. Expected: `InvalidActionDataError XA11
 - **Unnatural Scroll Wheels** inverts line wheel events. The driver sends pixel scroll events, which it does not change.
 - **TextEdit:** the frame of the text area is the full height of the document. Clicks and element screenshots use the visible part.
 - **macOS screenshots:** two PNG captures of the same pixels can have different bytes. The wheel test reads the scroll bar value.
+- **Windows Server, `calc.exe`:** it starts `win32calc.exe` and exits at once. The app process is `win32calc`.
+- **Notepad:** Enter gives `\r\n` in the text. The window title hides a known file extension, for example `system - Notepad` for `system.ini`.
+- **Windows Server:** the xa11y binary needs the Microsoft Visual C++ 2015–2022 runtime. GitHub runners have it, so CI does not show this.
 - **CI on macOS:** `xa11y/setup-a11y` grants only Accessibility. The workflows also add Screen Recording for the node binary to the TCC database. The macOS CI job runs this grant and passes on GitHub. `examples/optics-ci.yml` has not run yet.

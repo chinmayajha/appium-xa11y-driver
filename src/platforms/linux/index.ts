@@ -106,6 +106,7 @@ export const linux: Platform = {
   scrollTypes: new Set(['scroll pane']),
   // GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
   settleAfterReleaseMs: 50,
+  typeTextMovesCaret: true,
   terminate: quitGroup,
   runningPid: (appId) => pidByName(appId)
     .catch(() => (appId.includes('/') ? pidByName(path.basename(appId)) : undefined))

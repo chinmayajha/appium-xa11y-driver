@@ -7,9 +7,9 @@ export interface Fixtures {
     app: string;
     buttons: Record<'C' | '7' | '5' | '+' | '=', string>;
     stableId?: { id: string; name: string };
-    /** Arguments that make the app show `shows` when it starts. */
-    arguments?: { args: string[]; shows: string };
   };
+  /** Arguments that make the app show `shows` when it starts. */
+  arguments?: { app: string; args: string[]; shows: string };
   checkBox?: { app: string; xpath: string };
 }
 
@@ -32,19 +32,20 @@ const fixtures: Record<string, Fixtures> = {
     calculator: {
       app: 'gnome-calculator',
       buttons: { C: "//button[@name='C']", 7: "//button[@name='7']", 5: "//button[@name='5']", '+': "//button[@name='+']", '=': "//button[@name='=']" },
-      arguments: { args: ['--equation=40+2'], shows: '40+2' },
     },
+    arguments: { app: 'gnome-calculator', args: ['--equation=40+2'], shows: '40+2' },
     checkBox: { app: 'gtk3-widget-factory', xpath: "(//check_box[@checked='false' and @enabled='true' and @visible='true'])[last()]" },
   },
   windows: {
     platformName: 'Windows',
     primary: '',
-    editor: { app: 'notepad.exe', field: '(//document|//text_area)[1]', roles: ['document', 'text_area'], lineStart: 'Home' },
+    editor: { app: 'notepad.exe', field: '//web_area', roles: ['web_area'], lineStart: 'Home' },
     calculator: {
       app: 'calc.exe',
-      buttons: { C: "//button[@id='clearButton']", 7: "//button[@id='num7Button']", 5: "//button[@id='num5Button']", '+': "//button[@id='plusButton']", '=': "//button[@id='equalButton']" },
-      stableId: { id: 'num7Button', name: 'Seven' },
+      buttons: { C: "//button[@id='81']", 7: "//button[@id='137']", 5: "//button[@id='135']", '+': "//button[@id='93']", '=': "//button[@id='121']" },
+      stableId: { id: '137', name: '7' },
     },
+    arguments: { app: 'notepad.exe', args: ['C:\\Windows\\System32\\drivers\\etc\\hosts'], shows: 'hosts - Notepad' },
   },
 };
 

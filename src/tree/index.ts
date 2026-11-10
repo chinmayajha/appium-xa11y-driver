@@ -55,6 +55,13 @@ function rawAttribute(el: Element, name: string): string | null {
   return raw === undefined || raw === null ? null : String(raw);
 }
 
+const shownText = (el: Element) => [el.value, el.name, el.description].find(Boolean) ?? '';
+
+/** An editable element's text is its value only, so an empty field does not give its name. */
+function textOf(el: Element, platform: Platform): string {
+  return attributesOf(el, UNPLACED, platform).editable === 'true' ? el.value ?? '' : shownText(el);
+}
+
 /** The Session app's tree: Page source, find, element handles and bounds in Desktop coordinates. */
 export class Tree {
   private handles = new Map<string, Handle>();
@@ -128,7 +135,7 @@ export class Tree {
       return el.role;
     }
     if (name === 'text') {
-      return el.value || el.name || el.description || '';
+      return textOf(el, this.platform);
     }
     const attrs = PLACED_ATTRIBUTES.has(name) ? await this.attributes(el, top) : attributesOf(el, UNPLACED, this.platform);
     return attrs[name] ?? rawAttribute(el, name);

@@ -48,7 +48,7 @@ function actionFlags(el: Element, role: string, type: string, scrollTypes: Reado
   return {
     clickable: String(CLICK_ROLES.has(role) || actions.some((a) => CLICK_ACTIONS.has(a))),
     checkable: String(CHECK_ROLES.has(role) || el.checked !== null || actions.includes('toggle')),
-    editable: String(el.editable || EDIT_ROLES.has(role)),
+    editable: String(el.editable || EDIT_ROLES.has(role) || (role === 'web_area' && actions.includes('set_value'))),
     scrollable: String(isScrollable(el, role, type, scrollTypes)),
   };
 }

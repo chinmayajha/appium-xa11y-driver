@@ -34,7 +34,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `terminate`, `runningPid` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `runningPid` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. The guard only checks: it never activates a window. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
@@ -45,30 +45,31 @@ Rules:
 
 ## Platform seam
 
-The seam has real adapters for macOS and Linux and a Windows adapter that reports "Not supported yet on windows: <call>" for anything not proven on Windows. An adapter never falls back to another OS's behaviour.
+The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supported yet on <os>: <call>" for a call that is not proven on its OS, and never falls back to the behaviour of another OS.
 
 | Call | macOS | Linux (X11) | Windows |
 |---|---|---|---|
-| `launch` | `open -n -a`, then the newest pid of the bundle executable | spawn, detached | spawn, detached |
-| `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | not yet |
-| `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
-| `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | not yet |
+| `launch` | `open -n -a`, then the newest pid of the bundle executable | spawn, detached | spawn, detached; when the process exits with no window (a launcher such as `calc.exe`), the new app that it started |
+| `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | the pid of the xa11y foreground app |
+| `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | xa11y window activate |
+| `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | xa11y wheel lines with `dy` negated (xa11y gap 17) |
 | `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, post a flags change without Fn and keypad | xa11y key tap | xa11y key tap |
-| `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | not yet |
+| `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | xa11y key up |
 | `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |
-| `stableId` | AX identifier | none (xa11y gives the AT-SPI object path, which changes each time the app starts) | AutomationId |
-| `identity` | AX identifier; when it is empty, the handle checks the name | D-Bus name and AT-SPI object path. They are the same while the app runs. | AutomationId |
-| `platformRole` | `ax_role` | `atspi_role` | `uia_control_type` |
-| `scrollTypes` | `AXScrollArea` | `scroll pane` | `ScrollViewer` |
+| `stableId` | AX identifier | none (xa11y gives the AT-SPI object path, which changes each time the app starts) | AutomationId (xa11y gives the window handle of a Win32 control, which changes each time the app starts) |
+| `identity` | AX identifier; when it is empty, the handle checks the name | D-Bus name and AT-SPI object path. They are the same while the app runs. | xa11y `stableId`: the window handle, else the AutomationId |
+| `platformRole` | `ax_role` | `atspi_role` | the UIA control type name of `control_type_id` |
+| `scrollTypes` | `AXScrollArea` | `scroll pane` | none: the scroll actions of the element tell |
 | `settleAfterReleaseMs` | 0 | 50: GTK 4 loses a click that comes in the same main-loop turn as the previous release | 0 |
-| `terminate` | `SIGTERM` to the process | `SIGTERM` to the process group (the app starts detached), else to the process | not yet |
+| `typeTextMovesCaret` | yes | yes | no, so send keys is Raw input (xa11y gap 16) |
+| `terminate` | `SIGTERM` to the process | `SIGTERM` to the process group (the app starts detached), else to the process | `TerminateProcess` (Node `process.kill`) |
 
 **GTK 4 on X11.** GTK 4 gives `(0, 0)` as the screen position of every element. Its window-relative extents are correct, but relative to the visible frame of the window, not to the X11 window. GTK 4 draws its shadow inside the X11 window and announces its size in `_GTK_FRAME_EXTENTS`, and the size changes when the window gains or loses focus. So the Linux adapter calculates: element = X11 window position + `_GTK_FRAME_EXTENTS` (left, top) + AT-SPI `GetExtents(WINDOW)`. It reads the extents through its own small AT-SPI and X11 clients (`platforms/linux/`), with no `xprop` or `xdotool`. It finds the X11 window by pid and title. When no window or more than one window matches, the element has no bounds. On Wayland there is no global position, so GTK 4 elements have no bounds. GTK 4.14 (Ubuntu 24.04) gives its windows the role `generic`, with no position and no activate action, so xa11y finds no window ([docs/xa11y-gaps.md](docs/xa11y-gaps.md)). The conformance suite, Docker and CI use Debian 13 (GTK 4.18). `src/platforms/linux/{atspi,dbus,x11,replies}.ts` exist only to correct GTK 4 bounds. Delete them when an xa11y release gives screen positions for GTK 4 elements that include `_GTK_FRAME_EXTENTS` (see [docs/xa11y-gaps.md](docs/xa11y-gaps.md), Linux item 1).
 
 ## Tests
 
 - **Conformance suite** (`test/conformance/`): one WebDriver test set, run against the fixture apps of the OS it runs on. It is the definition of "this OS is supported" and of the Page source contract. It talks to a running Appium by URL, so the same suite runs on this Mac, on an instabox box through a tunnel, and in CI.
-- **Fixture apps:** macOS: TextEdit, Calculator. Linux: `gtk3-widget-factory`, `gnome-calculator`, `mousepad`. Windows: Notepad, Calculator.
+- **Fixture apps:** macOS: TextEdit, Calculator. Linux: `gtk3-widget-factory`, `gnome-calculator`, `mousepad`. Windows: Notepad, Calculator (`calc.exe` starts `win32calc.exe` on Windows Server).
 - No mocks of xa11y or of the OS. A behaviour that cannot be tested on a real Desktop session is not tested.
 
 ## Hosts and Surfaces

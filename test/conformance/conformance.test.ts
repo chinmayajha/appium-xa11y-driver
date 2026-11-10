@@ -82,7 +82,7 @@ describe('editor', () => {
   test('types special keys', async () => {
     await s.clear(field);
     await s.type(field, 'abcd');
-    await eventually(text, (v) => v === 'ac\nd');
+    await eventually(text, (v) => v.replace(/\r\n/g, '\n') === 'ac\nd');
   });
 
   test('a handle does not move to a different element when the tree changes', { skip: !fx.editor.siblingBefore && 'no fixture inserts a sibling' }, async () => {
@@ -349,12 +349,13 @@ describe('app lifecycle', () => {
   });
 });
 
-describe('app arguments', { skip: !fx.calculator.arguments && 'no fixture app shows its arguments' }, () => {
+describe('app arguments', { skip: !fx.arguments && 'no fixture app shows its arguments' }, () => {
   test('the app starts with its arguments', async () => {
-    const s = await open(fx.calculator.app, { 'appium:appArguments': fx.calculator.arguments!.args });
+    const { app, args, shows } = fx.arguments!;
+    const s = await open(app, { 'appium:appArguments': args });
     try {
-      const shown = fx.calculator.arguments!.shows;
-      await eventually(() => s.source(), (src) => new RegExp(`\\b(name|value|label)="${shown.replace(/[+]/g, '\\+')}"`).test(src));
+      const shown = shows.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await eventually(() => s.source(), (src) => new RegExp(`\\b(name|value|label)="${shown}"`).test(src));
     } finally {
       await s.delete();
     }

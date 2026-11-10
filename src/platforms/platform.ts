@@ -51,6 +51,8 @@ export interface Platform {
   readonly scrollTypes: ReadonlySet<string>;
   /** Wait after a pointer release before the next pointer event; some toolkits drop a click otherwise. */
   readonly settleAfterReleaseMs: number;
+  /** Whether the element typeText of xa11y leaves the caret after the text it inserts; when not, typing goes as Raw input. */
+  readonly typeTextMovesCaret: boolean;
   /** Ask the process, and on Linux its process group, to quit. */
   terminate(pid: number): void;
   /** The pid of a running instance of the app, matched the way launch() reads appId. */

@@ -116,7 +116,7 @@ jobs:
     needs: static
     runs-on: windows-latest
     timeout-minutes: 20
-    # The Windows adapter is not proven yet: the job shows which calls still fail.
+    # The suite passes on a Windows Server 2022 Host; the job stays optional until it passes on this runner image.
     continue-on-error: true
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
