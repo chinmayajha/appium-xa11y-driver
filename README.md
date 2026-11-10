@@ -109,8 +109,8 @@ Some commands are different from other Appium drivers.
 | `GET /element/:id/rect` | `{x: 0, y: 0, width: 0, height: 0}` for an element with no reliable bounds. |
 | `GET /element/:id/property/:name` | The same as `GET /element/:id/attribute/:name`. |
 | `GET /element/:id/text` | The value of the element. If it is empty, the name. If that is empty, the description. |
-| `activateApp` | Attaches the session to a running app with this name and brings it to the front. If no app has this name, it starts the app, as `xa11y: launch` does. Changes in plan 009. |
-| `terminateApp` | Stops the apps that the session started, and gives `true` if there was one. It does not use the app id. Changes in plan 009. |
+| `activateApp` | Attaches the session to a running instance of the app and brings it to the front. The app id is the same as for `appium:app`. If no instance runs, it starts the app, as `xa11y: launch` does. |
+| `terminateApp` | Stops this app: the instances that the session started, and the instance that runs now. It gives `true` if there was one. |
 | `execute` | Only the `xa11y:` methods. Other scripts fail with `unknown method`. |
 
 ## Surfaces
