@@ -26,7 +26,7 @@ hosts/mac/setup.sh
 
 On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
 
-On macOS the service is a LaunchAgent, `appium-xa11y`. macOS gives Accessibility and Screen & System Audio Recording to the app that starts Appium, not to Node. The script shows which app that is. Grant both permissions in System Settings > Privacy & Security, then restart Appium.
+On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. The script shows the path to grant. Grant both permissions in System Settings > Privacy & Security, then restart Appium.
 
 To install by hand:
 

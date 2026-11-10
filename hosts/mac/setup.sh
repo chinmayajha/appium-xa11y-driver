@@ -3,6 +3,7 @@
 set -euo pipefail
 
 NODE_VERSION="${NODE_VERSION:-22.23.3}"
+APPIUM_VERSION="${APPIUM_VERSION:-3.9.0}"
 XA11Y_HOME="${XA11Y_HOME:-$HOME/Library/Application Support/appium-xa11y}"
 LABEL=appium-xa11y
 AGENT="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -29,28 +30,49 @@ node_ok() {
     process.exit(a > 22 || (a === 22 && b >= 12) || (a === 20 && b >= 19) ? 0 : 1);'
 }
 
+own_node_ok() { [ "$("$XA11Y_HOME/node/bin/node" -v 2>/dev/null)" = "v$NODE_VERSION" ]; }
+
 install_node() {
   export PATH="$XA11Y_HOME/node/bin:$PATH"
-  node_ok && return
+  # The service's Node receives the Accessibility and Screen Recording grants, so it must not be the user's own Node.
+  if [ "$SERVICE" = no ]; then
+    node_ok && return
+  fi
+  own_node_ok && return
   local arch
   case "$(uname -m)" in
     arm64) arch=arm64 ;;
     x86_64) arch=x64 ;;
     *) die "no Node.js build for $(uname -m)" ;;
   esac
+  local name="node-v$NODE_VERSION-darwin-$arch.tar.gz" url="https://nodejs.org/dist/v$NODE_VERSION"
   log "Installing Node.js $NODE_VERSION in $XA11Y_HOME/node"
+  curl -fsSL -o "$XA11Y_HOME/$name" "$url/$name"
+  curl -fsSL -o "$XA11Y_HOME/SHASUMS256.txt" "$url/SHASUMS256.txt"
+  (cd "$XA11Y_HOME" && grep "  $name\$" SHASUMS256.txt | shasum -a 256 -c --status) \
+    || die "the Node.js download does not match SHASUMS256.txt"
   rm -rf "$XA11Y_HOME/node" && mkdir -p "$XA11Y_HOME/node"
-  curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-darwin-$arch.tar.gz" \
-    | tar -xz --strip-components=1 -C "$XA11Y_HOME/node"
+  tar -xz --strip-components=1 -C "$XA11Y_HOME/node" -f "$XA11Y_HOME/$name"
+  rm -f "$XA11Y_HOME/$name" "$XA11Y_HOME/SHASUMS256.txt"
 }
 
 appium() { APPIUM_HOME="$XA11Y_HOME/appium-home" "$XA11Y_HOME/appium/node_modules/.bin/appium" "$@"; }
 
 install_appium() {
-  if ! appium --version 2>/dev/null | grep -q '^3\.'; then
-    log "Installing Appium 3 in $XA11Y_HOME/appium"
-    npm install --prefix "$XA11Y_HOME/appium" --no-audit --no-fund --loglevel=error appium@3 >/dev/null
+  if [ "$(appium --version 2>/dev/null)" != "$APPIUM_VERSION" ]; then
+    log "Installing Appium $APPIUM_VERSION in $XA11Y_HOME/appium"
+    npm install --prefix "$XA11Y_HOME/appium" --no-audit --no-fund --loglevel=error "appium@$APPIUM_VERSION" >/dev/null
   fi
+}
+
+installed_driver() {
+  appium driver list --installed --json 2>/dev/null | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      let d;
+      try { d = JSON.parse(s).xa11y; } catch {}
+      process.stdout.write(d ? d.installType + " " + d.installSpec : "");
+    });'
 }
 
 install_driver() {
@@ -61,12 +83,20 @@ install_driver() {
     log "Building the driver in $spec"
     (cd "$spec" && { [ -d node_modules ] || npm ci --no-audit --no-fund --loglevel=error; } && npm run build >/dev/null)
   fi
-  if appium driver list --installed --json 2>/dev/null | grep -q '"xa11y"'; then
-    [ "$source" = npm ] && appium driver update xa11y >/dev/null 2>&1 || true
+  local current out
+  current=$(installed_driver)
+  if [ "$current" = "$source $spec" ]; then
+    if [ "$source" = npm ]; then
+      appium driver update xa11y >/dev/null 2>&1 || true
+    fi
+    log "The driver is installed from $source: $spec"
     return
   fi
-  log "Installing the driver from $spec"
-  local out
+  if [ -n "$current" ]; then
+    log "Removing the driver installed from ${current/ /: }"
+    out=$(appium driver uninstall xa11y 2>&1) || die "the old driver did not uninstall: $out"
+  fi
+  log "Installing the driver from $source: $spec"
   out=$(appium driver install --source="$source" "$spec" 2>&1) || die "the driver did not install: $out"
 }
 
@@ -75,7 +105,20 @@ write_env() {
   install -m 0755 "${BASH_SOURCE[0]}" "$XA11Y_HOME/host.sh"
 }
 
+probe_url() {
+  case "$ADDRESS" in
+    0.0.0.0 | ::) printf 'http://127.0.0.1:%s/status' "$PORT" ;;
+    *:*) printf 'http://[%s]:%s/status' "$ADDRESS" "$PORT" ;;
+    *) printf 'http://%s:%s/status' "$ADDRESS" "$PORT" ;;
+  esac
+}
+
+xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+
 install_agent() {
+  local program log
+  program=$(xml_escape "$XA11Y_HOME/host.sh")
+  log=$(xml_escape "$HOME/Library/Logs/$LABEL.log")
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
   cat >"$AGENT" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -83,12 +126,12 @@ install_agent() {
 <plist version="1.0">
 <dict>
   <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key><array><string>$XA11Y_HOME/host.sh</string><string>run</string></array>
+  <key>ProgramArguments</key><array><string>$program</string><string>run</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>LimitLoadToSessionType</key><string>Aqua</string>
-  <key>StandardOutPath</key><string>$HOME/Library/Logs/$LABEL.log</string>
-  <key>StandardErrorPath</key><string>$HOME/Library/Logs/$LABEL.log</string>
+  <key>StandardOutPath</key><string>$log</string>
+  <key>StandardErrorPath</key><string>$log</string>
 </dict>
 </plist>
 EOF
@@ -96,7 +139,7 @@ EOF
   launchctl bootstrap "gui/$(id -u)" "$AGENT"
   local _
   for _ in $(seq 60); do
-    curl -sf "http://127.0.0.1:$PORT/status" >/dev/null && break
+    curl -sf "$(probe_url)" >/dev/null && break
     sleep 1
   done
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
@@ -124,7 +167,7 @@ setup() {
     return
   fi
   install_agent
-  print_grants "$(node -p 'require("fs").realpathSync(process.execPath)')"
+  print_grants "$("$XA11Y_HOME/node/bin/node" -p 'require("fs").realpathSync(process.execPath)')"
 }
 
 run() {
@@ -138,6 +181,8 @@ COMMAND=setup
 if [ "${1:-}" = run ]; then
   COMMAND=run
   shift
+  here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  [ -f "$here/host.env" ] && XA11Y_HOME="$here"
   # shellcheck source=/dev/null
   . "$XA11Y_HOME/host.env"
 fi

@@ -68,8 +68,8 @@ async function frontmost(): Promise<App | undefined> {
 export const mac: Platform = {
   os: 'macos',
   primaryModifier: 'Meta',
-  permissionHint: 'Grant Accessibility and Screen & System Audio Recording to the app that started Appium '
-    + '(the terminal, or the launcher that spawned Node), not to Node itself.',
+  permissionHint: 'Grant Accessibility and Screen & System Audio Recording to the process that runs Appium: the Node.js of the service '
+    + '(hosts/mac/setup.sh prints its path), or the terminal app when you run host.sh run in a terminal.',
   async launch(app, args, timeoutMs) {
     const bundle = await bundlePath(app);
     const exe = await out('plutil', ['-extract', 'CFBundleExecutable', 'raw', `${bundle}/Contents/Info.plist`]);

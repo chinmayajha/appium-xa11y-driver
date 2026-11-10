@@ -3,6 +3,7 @@
 set -euo pipefail
 
 NODE_VERSION="${NODE_VERSION:-22.23.3}"
+APPIUM_VERSION="${APPIUM_VERSION:-3.9.0}"
 XA11Y_HOME="${XA11Y_HOME:-$HOME/.local/share/appium-xa11y}"
 UNIT=appium-xa11y.service
 BASE_PACKAGES="at-spi2-core dbus dbus-x11 libglib2.0-bin xauth xvfb openbox curl ca-certificates xz-utils fonts-dejavu-core"
@@ -67,19 +68,34 @@ install_node() {
     aarch64 | arm64) arch=arm64 ;;
     *) die "no Node.js build for $(uname -m)" ;;
   esac
+  local name="node-v$NODE_VERSION-linux-$arch.tar.xz" url="https://nodejs.org/dist/v$NODE_VERSION"
   log "Installing Node.js $NODE_VERSION in $XA11Y_HOME/node"
+  curl -fsSL -o "$XA11Y_HOME/$name" "$url/$name"
+  curl -fsSL -o "$XA11Y_HOME/SHASUMS256.txt" "$url/SHASUMS256.txt"
+  (cd "$XA11Y_HOME" && grep "  $name\$" SHASUMS256.txt | sha256sum -c --status) \
+    || die "the Node.js download does not match SHASUMS256.txt"
   rm -rf "$XA11Y_HOME/node" && mkdir -p "$XA11Y_HOME/node"
-  curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$arch.tar.xz" \
-    | tar -xJ --strip-components=1 -C "$XA11Y_HOME/node"
+  tar -xJ --strip-components=1 -C "$XA11Y_HOME/node" -f "$XA11Y_HOME/$name"
+  rm -f "$XA11Y_HOME/$name" "$XA11Y_HOME/SHASUMS256.txt"
 }
 
 appium() { APPIUM_HOME="$XA11Y_HOME/appium-home" "$XA11Y_HOME/appium/node_modules/.bin/appium" "$@"; }
 
 install_appium() {
-  if ! appium --version 2>/dev/null | grep -q '^3\.'; then
-    log "Installing Appium 3 in $XA11Y_HOME/appium"
-    npm install --prefix "$XA11Y_HOME/appium" --no-audit --no-fund --loglevel=error appium@3 >/dev/null
+  if [ "$(appium --version 2>/dev/null)" != "$APPIUM_VERSION" ]; then
+    log "Installing Appium $APPIUM_VERSION in $XA11Y_HOME/appium"
+    npm install --prefix "$XA11Y_HOME/appium" --no-audit --no-fund --loglevel=error "appium@$APPIUM_VERSION" >/dev/null
   fi
+}
+
+installed_driver() {
+  appium driver list --installed --json 2>/dev/null | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      let d;
+      try { d = JSON.parse(s).xa11y; } catch {}
+      process.stdout.write(d ? d.installType + " " + d.installSpec : "");
+    });'
 }
 
 install_driver() {
@@ -90,12 +106,20 @@ install_driver() {
     log "Building the driver in $spec"
     (cd "$spec" && { [ -d node_modules ] || npm ci --no-audit --no-fund --loglevel=error; } && npm run build >/dev/null)
   fi
-  if appium driver list --installed --json 2>/dev/null | grep -q '"xa11y"'; then
-    [ "$source" = npm ] && appium driver update xa11y >/dev/null 2>&1 || true
+  local current out
+  current=$(installed_driver)
+  if [ "$current" = "$source $spec" ]; then
+    if [ "$source" = npm ]; then
+      appium driver update xa11y >/dev/null 2>&1 || true
+    fi
+    log "The driver is installed from $source: $spec"
     return
   fi
-  log "Installing the driver from $spec"
-  local out
+  if [ -n "$current" ]; then
+    log "Removing the driver installed from ${current/ /: }"
+    out=$(appium driver uninstall xa11y 2>&1) || die "the old driver did not uninstall: $out"
+  fi
+  log "Installing the driver from $source: $spec"
   out=$(appium driver install --source="$source" "$spec" 2>&1) || die "the driver did not install: $out"
 }
 
@@ -131,7 +155,7 @@ Description=Appium with the xa11y driver in the Desktop session
 After=dbus.socket
 
 [Service]
-ExecStart=$XA11Y_HOME/host.sh run
+ExecStart="$XA11Y_HOME/host.sh" run
 Restart=on-failure
 RestartSec=3
 
@@ -145,10 +169,18 @@ EOF
   log "Appium listens on http://$ADDRESS:$PORT (service $UNIT)"
 }
 
+probe_url() {
+  case "$ADDRESS" in
+    0.0.0.0 | ::) printf 'http://127.0.0.1:%s/status' "$PORT" ;;
+    *:*) printf 'http://[%s]:%s/status' "$ADDRESS" "$PORT" ;;
+    *) printf 'http://%s:%s/status' "$ADDRESS" "$PORT" ;;
+  esac
+}
+
 wait_for_appium() {
   local _
   for _ in $(seq 60); do
-    curl -sf "http://127.0.0.1:$PORT/status" >/dev/null && return 0
+    curl -sf "$(probe_url)" >/dev/null && return 0
     sleep 1
   done
   return 1
@@ -230,7 +262,7 @@ a11y_bus() {
   local _
   for _ in $(seq 20); do
     gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.a11y.Bus.GetAddress >/dev/null 2>&1 && break
-    pgrep -u "$(id -u)" -f at-spi-bus-launcher >/dev/null || /usr/libexec/at-spi-bus-launcher --launch-immediately >/dev/null 2>&1 &
+    { pgrep -u "$(id -u)" -f at-spi-bus-launcher >/dev/null || /usr/libexec/at-spi-bus-launcher --launch-immediately >/dev/null 2>&1 & }
     sleep 0.5
   done
   local prop
@@ -260,6 +292,8 @@ COMMAND=setup
 if [ "${1:-}" = run ]; then
   COMMAND=run
   shift
+  here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  [ -f "$here/host.env" ] && XA11Y_HOME="$here"
   # shellcheck source=/dev/null
   . "$XA11Y_HOME/host.env"
 fi
