@@ -96,6 +96,8 @@ jobs:
              VALUES('kTCCServiceScreenCapture','${CLIENT}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
           sudo launchctl stop com.apple.tccd || true
           sleep 2
+      # Inline predictions put a predicted word into the value of a TextEdit text area.
+      - run: defaults write -g NSAutomaticInlinePredictionEnabled -bool false
       - run: hosts/mac/setup.sh --driver . --no-service
       - name: Start Appium
         run: |

@@ -92,7 +92,7 @@ Bounds, screenshots and pointer actions use one space: the Desktop coordinates o
 
 The driver uses an Accessibility action first. Send keys to an editable element sets the text through the accessibility API, and a click on a button uses its press action. Then the app can stay behind other windows.
 
-Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press action are Raw input. The OS sends Raw input to the frontmost app. So the driver sends Raw input only when the Session app is frontmost. It checks before each event and does not bring the app to the front. If a different app is in front, for example a system alert, the command fails with `invalid element state` and sends nothing. To bring the Session app to the front, use `activateApp` or `xa11y: focusWindow`.
+Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press action are Raw input. A special key in send keys, for example Backspace, is Raw input too, and the text after it is also Raw input, so that all of it arrives in order. The OS sends Raw input to the frontmost app. So the driver sends Raw input only when the Session app is frontmost. It checks before each event and does not bring the app to the front. If a different app is in front, for example a system alert, the command fails with `invalid element state` and sends nothing. To bring the Session app to the front, use `activateApp` or `xa11y: focusWindow`.
 
 On macOS the driver sends wheel actions as continuous pixel scroll events, the same events that a trackpad sends. Tools that invert the mouse wheel change only line events, so a positive `deltaY` scrolls down on all Macs. On Linux the driver changes wheel deltas to scroll lines of 20 px.
 
@@ -154,6 +154,7 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 - Linux: elements have no Stable id.
 - Linux, GTK 4: AT-SPI runs an action later in the main loop of the app. If you mix an Accessibility click and Raw input, the Raw input can arrive first.
 - macOS: a second process cannot take a screenshot while a different process holds a capture.
+- macOS: inline predictive text adds a predicted word to the value of a text field, and setting the value fails while the prediction shows. Turn it off on a test Host: System Settings > Keyboard > Text Input > Edit > Show inline predictive text.
 
 [docs/xa11y-gaps.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/docs/xa11y-gaps.md) has each xa11y limit with a short repro, and the problems that come from other parts.
 
