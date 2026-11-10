@@ -9,10 +9,16 @@ import { attributesOf, snapshot, toXml, type Node, type Path, type Placement } f
 
 export { LOCATOR_STRATEGIES } from './find';
 
-interface Handle {
+interface Found {
   el: Element;
   path?: Path;
   locator?: Locator;
+}
+
+interface Handle extends Found {
+  pid: number | null;
+  identity: string;
+  name: string;
 }
 
 interface Resolved {
@@ -129,9 +135,9 @@ export class Tree {
     return attrs[name] ?? rawAttribute(el, name);
   }
 
-  private remember(handle: Handle): string {
+  private remember(found: Found): string {
     const id = randomUUID();
-    this.handles.set(id, handle);
+    this.handles.set(id, { ...found, pid: this.target.app.pid, identity: this.platform.identity(found.el), name: found.el.name ?? '' });
     return id;
   }
 
@@ -157,14 +163,28 @@ export class Tree {
     return { el, top };
   }
 
+  private changed(h: Handle, el: Element): string | undefined {
+    if (el.role !== h.el.role) {
+      return `Element changed from ${h.el.role} to ${el.role}`;
+    }
+    if (h.identity) {
+      return this.platform.identity(el) === h.identity ? undefined : `A different ${el.role} element is now at the place of this one`;
+    }
+    return h.name && el.name !== h.name ? `The ${el.role} element '${h.name}' is now named '${el.name ?? ''}'` : undefined;
+  }
+
   private async resolve(id: string): Promise<Resolved> {
     const h = this.handle(id);
+    if (this.target.app.pid !== h.pid) {
+      throw new errors.StaleElementReferenceError('The element belongs to another app');
+    }
     const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.walk(h.path ?? [])).catch((e) => {
       const err = asWebDriverError(e);
       throw err instanceof errors.NoSuchElementError ? new errors.StaleElementReferenceError(`The element is no longer in the tree: ${err.message}`) : err;
     });
-    if (found.el.role !== h.el.role) {
-      throw new errors.StaleElementReferenceError(`Element changed from ${h.el.role} to ${found.el.role}`);
+    const change = this.changed(h, found.el);
+    if (change) {
+      throw new errors.StaleElementReferenceError(change);
     }
     h.el = found.el;
     return found;
@@ -182,12 +202,12 @@ export class Tree {
     return { el, path: h.path, top: h.path.length === 1 ? undefined : top };
   }
 
-  private async byXpath(expr: string, context?: string): Promise<Handle[]> {
+  private async byXpath(expr: string, context?: string): Promise<Found[]> {
     const snap = await snapshot(await this.rootNode(context), this.place);
     return select(snap, expr).map((n) => ({ el: n.el, path: n.path }));
   }
 
-  private async bySelector(selector: string, context?: string): Promise<Handle[]> {
+  private async bySelector(selector: string, context?: string): Promise<Found[]> {
     if (context) {
       throw new errors.InvalidArgumentError('-xa11y selector searches the whole app; use xpath inside an element');
     }
