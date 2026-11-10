@@ -1,12 +1,14 @@
 # xa11y gaps
 
-These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
+These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y, and its status on xa11y `main` at 7820c4a. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
 
 The driver has a workaround for each item. The section [Not xa11y](#not-xa11y) lists the problems that come from other parts.
 
 ## Linux
 
 ### 1. GTK 4 bounds: the upstream fix does not add the window shadow
+
+**Status on `main`:** open. Fix: [xa11y #677](https://github.com/xa11y/xa11y/pull/677). On Xfce, the focused and the unfocused window gave the same `_GTK_FRAME_EXTENTS`.
 
 xa11y #487 (closed, not released) adds the X11 position of the client window to the window-relative extents of GTK 4. But GTK 4 draws its shadow inside the X11 window, and the window-relative extents start at the visible frame. So the fix gives positions that are too far up and to the left, by the size of the shadow. The shadow size is in `_GTK_FRAME_EXTENTS`. It changes when the window gains or loses focus.
 
@@ -25,6 +27,8 @@ Expected: add `_GTK_FRAME_EXTENTS` left and top. The 12 px that remain for gnome
 
 ### 2. `stableId` is the AT-SPI object path
 
+**Status on `main`:** by design (the docs say: the D-Bus object path). `AccessibleId` is empty in GTK 3 and GTK 4. Question: [xa11y #684](https://github.com/xa11y/xa11y/issues/684).
+
 ```js
 const app = await xa11y.App.byName('gnome-calculator');
 console.log((await app.locator('button[name="7"]').element()).stableId);
@@ -34,6 +38,8 @@ Seen: `/org/a11y/atspi/accessible/35` or `/org/gnome/Calculator/a11y/<uuid>`. Th
 
 ### 3. `App.foreground()` names the window manager on X11
 
+**Status on `main`:** open. Fix: [xa11y #680](https://github.com/xa11y/xa11y/pull/680).
+
 ```js
 console.log((await xa11y.App.foreground()).name);
 ```
@@ -41,6 +47,8 @@ console.log((await xa11y.App.foreground()).name);
 Repro on Xfce with mousepad in front: seen `xfwm4`. Expected: `mousepad`. `window.active` is correct: it agrees with `_NET_ACTIVE_WINDOW`. The driver uses `window.active`.
 
 ### 4. The screenshot keeps the screen size of the first capture
+
+**Status on `main`:** open. On `main`, a smaller screen gives an X11 `GetImage` error. Fix: [xa11y #679](https://github.com/xa11y/xa11y/pull/679).
 
 ```js
 await xa11y.screenshot();                  // 1440 x 900
@@ -52,6 +60,8 @@ Expected: the new screen size after a RandR change. Workaround: restart the proc
 
 ### 5. `typeText` rejects newline and tab
 
+**Status on `main`:** newline is fixed (xa11y #498). Tab still fails. Fix: [xa11y #678](https://github.com/xa11y/xa11y/pull/678).
+
 ```js
 xa11y.inputSim().typeText('a\nb');
 ```
@@ -60,9 +70,13 @@ Seen: `ActionNotSupportedError: character '\n' (keysym 0x100000a) has no keycode
 
 ### 6. The wheel is in clicks, not pixels
 
+**Status on `main`:** by design (the unit is wheel ticks). The round trip in mousepad now comes back to 0. Question: [xa11y #683](https://github.com/xa11y/xa11y/issues/683).
+
 `inputSim().scroll(at, dx, dy)` takes lines. A toolkit decides the size of one click, so 30 clicks moved GTK 3 about 80 lines. Also, 30 clicks down and 30 clicks up do not come back to the same place in mousepad (0 → 1700 → 176 px). The driver uses 20 px for one line, and the conformance suite checks only the direction.
 
 ### 7. GTK 4.14: windows have the role `generic`
+
+**Status on `main`:** fixed (xa11y #485 and #600). With GTK 4.14.5 (Ubuntu 24.04), gnome-calculator has one window with bounds and an activate action.
 
 ```js
 console.log((await (await xa11y.App.byName('gnome-text-editor')).windows()).length);
@@ -74,6 +88,8 @@ Seen on Ubuntu 24.04 (GTK 4.14): `0`. The same occurs with `gnome-calculator`: t
 
 ### 8. An app with no window is its own child
 
+**Status on `main`:** not reproduced. The repro needs a locked screen.
+
 ```js
 const app = await xa11y.App.byName('TextEdit');
 const kids = await app.asElement().children();
@@ -84,21 +100,31 @@ Seen when the screen is locked: `['application']`, and that child also has the a
 
 ### 9. A drag releases too fast
 
+**Status on `main`:** fixed (xa11y #515). 5 of 5 drags select the line.
+
 `inputSim().drag(from, to)` across one line of text in TextEdit does not select it. Typing "D" after the drag gives "first line here\nsecond lineD". Expected: "D\nsecond line". xa11y #515 (closed, not released).
 
 ### 10. The menu bar is not in the app tree
+
+**Status on `main`:** by design (xa11y #374).
 
 `app.locator('menu_bar')` finds nothing. This is by design: `ShellSurface.byKind('menu_bar')` gives it (xa11y #374). The driver does not put it in the Page source yet.
 
 ### 11. A chord does not wait until the modifiers are up
 
+**Status on `main`:** open, root cause not known. 3 of 100 to 12 of 200 chords fail. A 100 ms wait gives 0 of 100. Issue: [xa11y #681](https://github.com/xa11y/xa11y/issues/681).
+
 After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrives with Cmd. The driver sends the key-up events itself and waits until the event source shows no modifiers.
 
 ### 12. `typeText` in one call loses keys in Calculator
 
+**Status on `main`:** open. The cause is 20 characters in one key event, not the pace. Fix: [xa11y #676](https://github.com/xa11y/xa11y/pull/676).
+
 `input.typeText('7*6=')` gives only "7". Keys sent one at a time, 150 ms apart, give "42". xa11y does not pace the keys.
 
 ### 13. A second process cannot take a screenshot
+
+**Status on `main`:** open. The two ScreenCaptureKit waits have no timeout. Issue: [xa11y #682](https://github.com/xa11y/xa11y/issues/682).
 
 If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver.
 
