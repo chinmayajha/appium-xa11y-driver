@@ -5,13 +5,15 @@ import type { Point } from './platform';
 
 const WHEEL_PIXELS_PER_LINE = 20;
 
-export function spawnApp(app: string, args: string[]): number {
-  const child = spawn(app, args, { detached: true, stdio: 'ignore' });
-  child.unref();
-  if (!child.pid) {
-    throw new errors.SessionNotCreatedError(`Could not start '${app}'`);
-  }
-  return child.pid;
+export function spawnApp(app: string, args: string[]): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(app, args, { detached: true, stdio: 'ignore' });
+    child.once('error', (e) => reject(new errors.SessionNotCreatedError(`Could not start '${app}': ${e.message}`)));
+    child.once('spawn', () => {
+      child.unref();
+      resolve(child.pid as number);
+    });
+  });
 }
 
 function wheelLines(pixels: number): number {
