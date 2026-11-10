@@ -74,9 +74,11 @@ Send keys to an editable element puts the text in through the accessibility API,
 
 Chords, `xa11y: typeText` and W3C actions are synthetic input, and the OS sends them to the foreground app. Before each one, the driver brings the app's window to the front. If another app keeps the foreground (for example, a system alert), the command fails with `invalid element state` and sends no input.
 
+On macOS, wheel actions are sent as continuous pixel scroll events, the same kind a trackpad sends. Tools that invert the mouse wheel (for example, Unnatural Scroll Wheels) change only line events, so a positive `deltaY` scrolls down on every Mac. On Windows and Linux, wheel deltas are converted to scroll lines of 20 px.
+
 ## Commands
 
-Sessions; find element(s); click, send keys, clear, text, attribute, rect, displayed, enabled, selected, active element; page source; screenshots of the screen and of an element; window rect; W3C actions with `pointer`, `key` and `wheel` sources (wheel deltas are converted to scroll lines of 20 px); `activateApp` and `terminateApp`.
+Sessions; find element(s); click, send keys, clear, text, attribute, rect, displayed, enabled, selected, active element; page source; screenshots of the screen and of an element; window rect; W3C actions with `pointer`, `key` and `wheel` sources; `activateApp` and `terminateApp`.
 
 `execute` methods:
 

@@ -40,6 +40,7 @@ after(async () => {
 
 test('types into a new document and reads the text back', { skip: !mac }, async () => {
   const area = await find('class name', 'text_area');
+  await driver.clear(area);
   await driver.setValue('hello from appium', area);
   assert.equal(await driver.getText(area), 'hello from appium');
   assert.equal(await driver.getAttribute('editable', area), 'true');
@@ -65,6 +66,7 @@ test('screenshots share the coordinate scale of the bounds', { skip: !mac }, asy
 
 test('W3C key, pointer and wheel actions drive the document', { skip: !mac }, async (t) => {
   const area = await find('class name', 'text_area');
+  await driver.xa11yFocusWindow().catch(() => undefined);
   const front = await App.foreground({ timeout: 0 });
   if (front.name !== 'TextEdit') {
     await assert.rejects(driver.xa11yChord('cmd+a'), errors.InvalidElementStateError);
@@ -77,17 +79,43 @@ test('W3C key, pointer and wheel actions drive the document', { skip: !mac }, as
       { type: 'pointerDown', button: 0 },
       { type: 'pointerUp', button: 0 },
     ] },
+  ] as never);
+  await driver.performActions([
     { type: 'key', id: 'kbd', actions: [
-      { type: 'pause', duration: 0 },
       { type: 'keyDown', value: '' }, { type: 'keyDown', value: 'a' }, { type: 'keyUp', value: 'a' }, { type: 'keyUp', value: '' },
-      { type: 'keyDown', value: 'x' }, { type: 'keyUp', value: 'x' },
+      { type: 'keyDown', value: 'u' }, { type: 'keyUp', value: 'u' },
     ] },
   ] as never);
-  assert.equal(await driver.getText(area), 'x');
-  await driver.performActions([
-    { type: 'wheel', id: 'wheel', actions: [{ type: 'scroll', x: 0, y: 0, deltaX: 0, deltaY: 120, origin: { [ELEMENT]: area } }] },
+  assert.equal(await eventually(() => driver.getText(area), 'u'), 'u');
+  await driver.setValue(Array.from({ length: 200 }, (_, i) => `\nline ${i}`).join(''), area);
+  const wheel = (deltaY: number) => driver.performActions([
+    { type: 'wheel', id: 'wheel', actions: [{ type: 'scroll', x: 0, y: 0, deltaX: 0, deltaY, origin: { [ELEMENT]: area } }] },
   ] as never);
+  await wheel(-4000);
+  assert.equal(await verticalScroll(), 0, 'a negative deltaY scrolls to the top');
+  await wheel(120);
+  assert.ok((await verticalScroll()) > 0, 'a positive deltaY scrolls down');
 });
+
+async function eventually<T>(read: () => Promise<T>, wanted: T): Promise<T> {
+  let value = await read();
+  for (let i = 0; i < 20 && value !== wanted; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    value = await read();
+  }
+  return value;
+}
+
+async function verticalScroll(): Promise<number> {
+  await new Promise((r) => setTimeout(r, 400));
+  for (const bar of await driver.findElOrEls('xpath', '//scroll_bar', true)) {
+    const rect = await driver.getElementRect(bar[ELEMENT]);
+    if (rect.height > rect.width) {
+      return Number(await driver.getAttribute('value', bar[ELEMENT]));
+    }
+  }
+  throw new Error('no vertical scroll bar');
+}
 
 test('a click toggles a format bar check box', { skip: !mac }, async () => {
   const bold = await find('xpath', "//check_box[@name='bold']");

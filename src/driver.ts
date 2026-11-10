@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import {
-  App, Element, Locator, Screenshot, inputSim, screenshot, type InputSim,
+  App, Element, Locator, Screenshot, inputSim, screenshot, type InputSim, type Rect,
 } from '@crowecawcaw/xa11y';
 import { BaseDriver, errors } from 'appium/driver';
 import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
 import xpath from 'xpath';
 import type { Element as XmlElement } from '@xmldom/xmldom';
-import { perform, release, newInputState, type ActionContext, type ActionSequence, type Point } from './actions';
+import { perform, pressChord, release, newInputState, type ActionContext, type ActionSequence, type Point } from './actions';
 import { attach, launch, terminate } from './app';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
 import { isSpecialKey, parseChord, w3cKey } from './keys';
@@ -51,6 +51,26 @@ async function waitFor(check: () => Promise<boolean>, ms: number): Promise<void>
   while (Date.now() < deadline && !(await check())) {
     await new Promise((r) => setTimeout(r, 50));
   }
+}
+
+/** Center of the part of the element that its ancestors (scroll areas, the window) leave visible. */
+async function visibleCenter(el: Element): Promise<Point> {
+  let r = el.bounds;
+  if (!r) {
+    throw new errors.InvalidElementStateError(`The ${el.role} element has no bounds to point at`);
+  }
+  for (let p = await el.parent(); p; p = await p.parent()) {
+    r = (p.bounds && intersect(r, p.bounds)) ?? r;
+  }
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+}
+
+function intersect(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const width = Math.min(a.x + a.width, b.x + b.width) - x;
+  const height = Math.min(a.y + a.height, b.y + b.height) - y;
+  return width > 0 && height > 0 ? { x, y, width, height } : null;
 }
 
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
@@ -244,13 +264,18 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     if (el.actions.includes('press')) {
       await el.press();
     } else {
-      await (await this.foregroundInput()).click(el);
+      await this.rawClick(el);
     }
+  }
+
+  private async rawClick(el: Element): Promise<void> {
+    const at = await visibleCenter(el);
+    await (await this.foregroundInput()).click([at.x, at.y]);
   }
 
   async setValue(text: string | string[], id: string): Promise<void> {
     const el = await this.fresh(id);
-    await el.focus().catch(async () => (await this.foregroundInput()).click(el));
+    await el.focus().catch(() => this.rawClick(el));
     await this.typeKeys(Array.isArray(text) ? text.join('') : text, el);
   }
 
@@ -360,10 +385,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     return {
       input: this.input,
       state: this.inputState,
-      elementCenter: async (id: string): Promise<Point> => {
-        const r = await this.getElementRect(id);
-        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      },
+      elementCenter: async (id: string): Promise<Point> => visibleCenter(await this.fresh(id)),
     };
   }
 
@@ -416,7 +438,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   async xa11yChord(keys: string): Promise<void> {
     const chord = parseChord(keys);
     const input = await this.foregroundInput();
-    await (chord.held.length ? input.chord(chord.key, chord.held) : input.press(chord.key));
+    await pressChord(input, chord.key, chord.held);
   }
 
   async xa11yTypeText(text: string): Promise<void> {
