@@ -172,6 +172,8 @@ describe('calculator', () => {
 
   before(async () => {
     s = await open(fx.calculator.app);
+    // CI desktops are small, and the Dock or a taskbar covers the bottom of the screen.
+    await s.call('POST', '/window/rect', { x: 40, y: 60, width: null, height: null });
   });
 
   after(async () => {

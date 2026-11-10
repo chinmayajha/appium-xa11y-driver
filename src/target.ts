@@ -97,13 +97,13 @@ export class Target {
     await (await this.window(name)).close();
   }
 
-  /** Moves the main window when x and y are set, and resizes it when width and height are set. */
+  /** Moves the main window when x and y are set, and resizes it when width and height are set and differ from its size. */
   async moveWindow(rect: { x: number | null; y: number | null; width: number | null; height: number | null }): Promise<void> {
     const win = await this.window();
     if (rect.x != null && rect.y != null) {
       await win.moveTo(rect.x, rect.y);
     }
-    if (rect.width != null && rect.height != null) {
+    if (rect.width != null && rect.height != null && (rect.width !== win.bounds?.width || rect.height !== win.bounds?.height)) {
       await win.resizeTo(rect.width, rect.height);
     }
   }
