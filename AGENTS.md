@@ -10,6 +10,7 @@ Read GLOSSARY.md and ARCHITECTURE.md before you change code.
 4. Throw `notSupportedYet('<os>', '<call>')` for a call that is not proven on an OS. Never use the behaviour of a different OS.
 5. The Page source attributes are a contract. A change to them is a breaking change and needs a CHANGELOG.md entry.
 6. Write no code comments, except a one-line reason that the code cannot show.
+7. `index.html` is the GitHub Pages site. When you change the platforms, capabilities, locators, `xa11y:` methods or surfaces in README.md, change `index.html` too.
 
 ## Commands
 

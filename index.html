@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>appium-xa11y-driver</title>
+<meta name="description" content="Appium 3 driver for native desktop apps on macOS, Linux and Windows, built on xa11y.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><path d='M9 10l6 6-6 6M17 22h7' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --muted: #5f6368;
+  --line: #e4e4e1;
+  --accent: #2563eb;
+  --accent-soft: #e8efff;
+  --code-bg: #f3f3f1;
+  --ok: #15803d;
+  --warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1012;
+    --surface: #17181b;
+    --text: #e8e8e6;
+    --muted: #9a9ea5;
+    --line: #2a2c30;
+    --accent: #7aa2ff;
+    --accent-soft: #1a2440;
+    --code-bg: #1c1d21;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.875rem; }
+code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+header.top { border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 56px; }
+.brand { font-weight: 650; color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.95rem; }
+nav.links { display: flex; gap: 18px; font-size: 0.925rem; }
+nav.links a { color: var(--muted); }
+nav.links a:hover { color: var(--text); text-decoration: none; }
+.hero { padding-top: 64px; padding-bottom: 40px; }
+.hero h1 { font-size: clamp(1.9rem, 5vw, 2.75rem); line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 16px; max-width: 18ch; }
+.hero p { color: var(--muted); font-size: 1.1rem; margin: 0 0 28px; max-width: 60ch; }
+.install { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 16px; max-width: 640px; }
+.install code { background: none; padding: 0; flex: 1; overflow-x: auto; white-space: nowrap; }
+.install code::before { content: "$ "; color: var(--muted); }
+button.copy { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 7px; padding: 6px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; }
+button.copy:hover { border-color: var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.pill { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+section { padding: 40px 0; border-top: 1px solid var(--line); }
+h2 { font-size: 1.3rem; margin: 0 0 20px; letter-spacing: -0.01em; }
+h3 { font-size: 1rem; margin: 0 0 6px; }
+.flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; align-items: stretch; }
+.node { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; position: relative; }
+.node small { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 4px; line-height: 1.4; }
+.node.hl { border-color: var(--accent); background: var(--accent-soft); }
+.flow .node + .node { margin-left: 28px; }
+.flow .node + .node::before { content: "→"; position: absolute; left: -22px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.host { margin-top: 12px; font-size: 0.85rem; color: var(--muted); }
+.lead { margin: 0 0 20px; color: var(--muted); max-width: 70ch; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+.status { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.status.ok { color: var(--ok); }
+.status.warn { color: var(--warn); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.two > * { min-width: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.docs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.docs a { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; color: var(--text); }
+.docs a:hover { border-color: var(--accent); text-decoration: none; }
+.docs a span { display: block; color: var(--muted); font-size: 0.85rem; }
+footer { border-top: 1px solid var(--line); padding: 28px 0 48px; color: var(--muted); font-size: 0.875rem; }
+footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+@media (max-width: 760px) {
+  nav.links { gap: 12px; }
+  nav.links a.wide { display: none; }
+  .flow { grid-template-columns: 1fr; }
+  .flow .node + .node { margin: 24px 0 0; }
+  .flow .node + .node::before { content: "↓"; left: 50%; top: -20px; transform: translateX(-50%); }
+  .grid3, .two, .docs { grid-template-columns: 1fr; }
+  .hero { padding-top: 40px; padding-bottom: 28px; }
+  table { display: block; overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./">appium-xa11y-driver</a>
+    <nav class="links">
+      <a href="https://github.com/chinmayajha/appium-xa11y-driver#readme">Docs</a>
+      <a class="wide" href="https://xa11y.dev">xa11y</a>
+      <a href="https://www.npmjs.com/package/appium-xa11y-driver">npm</a>
+      <a href="https://github.com/chinmayajha/appium-xa11y-driver">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <h1>Appium for native desktop apps.</h1>
+    <p>An Appium 3 driver for macOS, Linux and Windows. It reads the accessibility tree of the OS through <a href="https://xa11y.dev">xa11y</a> and serves it over WebDriver.</p>
+    <div class="install">
+      <code id="cmd">appium driver install --source=npm appium-xa11y-driver</code>
+      <button class="copy" data-copy="cmd">Copy</button>
+    </div>
+    <div class="meta">
+      <span class="pill" id="version">v0.1.0</span>
+      <span class="pill">automationName: Xa11y</span>
+      <span class="pill">Appium 3</span>
+      <span class="pill">MIT</span>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2>How it works</h2>
+      <div class="flow">
+        <div class="node"><h3>Client</h3><small>optics, WebdriverIO, an MCP server</small></div>
+        <div class="node hl"><h3>Appium 3 + driver</h3><small>WebDriver on <code>127.0.0.1:4723</code></small></div>
+        <div class="node"><h3>xa11y</h3><small>Rust core, Node bindings, prebuilt binaries</small></div>
+        <div class="node"><h3>OS accessibility API</h3><small>AXUIElement · AT-SPI2 · UI Automation</small></div>
+      </div>
+      <p class="host">Appium and the driver run on the Host, in the logged-in Desktop session next to the app. The Client can run anywhere that can reach the port.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Platforms</h2>
+      <div class="grid3">
+        <div class="card">
+          <span class="status ok">Supported</span>
+          <h3>macOS</h3>
+          <ul>
+            <li>AXUIElement</li>
+            <li>Needs Accessibility and Screen Recording</li>
+            <li>Runs as a LaunchAgent</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="status ok">Supported</span>
+          <h3>Linux</h3>
+          <ul>
+            <li>AT-SPI2 on X11</li>
+            <li>GTK 3, GTK 4.18+</li>
+            <li>systemd user unit, Docker image</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="status warn">Experimental</span>
+          <h3>Windows</h3>
+          <ul>
+            <li>UI Automation</li>
+            <li>Proven on Windows Server 2022</li>
+            <li>Needs the VC++ 2015–2022 runtime</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Quick start</h2>
+      <div class="two">
+        <div>
+          <h3>1. Prepare the Host</h3>
+          <pre><code>git clone https://github.com/chinmayajha/appium-xa11y-driver
+cd appium-xa11y-driver
+hosts/mac/setup.sh     # or hosts/linux/setup.sh</code></pre>
+          <p class="host">The script installs Appium 3 and the driver, and runs Appium as a service in the Desktop session. You can run it again.</p>
+        </div>
+        <div>
+          <h3>2. Start a session</h3>
+          <pre><code>{
+  "platformName": "Mac",
+  "appium:automationName": "Xa11y",
+  "appium:app": "com.apple.TextEdit"
+}</code></pre>
+          <p class="host">Use <code>appium:appName</code> to attach to a running app. With neither, the session attaches to the frontmost app.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap two">
+      <div>
+        <h2>Locators</h2>
+        <table>
+          <tr><th>Strategy</th><th>Finds</th></tr>
+          <tr><td><code>xpath</code></td><td>XPath on the Page source</td></tr>
+          <tr><td><code>accessibility id</code></td><td><code>@id</code>, then <code>@name</code></td></tr>
+          <tr><td><code>id</code>, <code>name</code></td><td><code>@id</code>, <code>@name</code></td></tr>
+          <tr><td><code>class name</code></td><td>the role, e.g. <code>button</code></td></tr>
+          <tr><td><code>-xa11y selector</code></td><td><a href="https://xa11y.dev/reference/selectors/">xa11y selector</a>, e.g. <code>button[name='OK']</code></td></tr>
+        </table>
+      </div>
+      <div>
+        <h2>Execute methods</h2>
+        <table>
+          <tr><th>Method</th><th>Arguments</th></tr>
+          <tr><td><code>xa11y: chord</code></td><td><code>keys</code>, e.g. <code>primary+a</code></td></tr>
+          <tr><td><code>xa11y: typeText</code></td><td><code>text</code></td></tr>
+          <tr><td><code>xa11y: focusWindow</code>, <code>closeWindow</code></td><td><code>name</code></td></tr>
+          <tr><td><code>xa11y: launch</code></td><td><code>app</code>, <code>arguments</code></td></tr>
+          <tr><td><code>xa11y: switchApp</code></td><td><code>name</code> or <code>pid</code></td></tr>
+          <tr><td><code>xa11y: listApps</code>, <code>listWindows</code>, <code>activeAppInfo</code></td><td>none</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Where it runs</h2>
+      <table>
+        <tr><th>Surface</th><th>Prepare the Host</th><th>Client connects to</th></tr>
+        <tr><td>This machine</td><td><code>hosts/&lt;os&gt;/setup.sh</code></td><td><code>http://127.0.0.1:4723</code></td></tr>
+        <tr><td>Local VM or cloud machine</td><td>The same script in the VM</td><td>An SSH tunnel to <code>127.0.0.1:4723</code></td></tr>
+        <tr><td>Docker</td><td><code>docker/linux/Dockerfile</code></td><td><code>http://127.0.0.1:4723</code></td></tr>
+        <tr><td>CI</td><td>The script on the runner</td><td><code>127.0.0.1:4723</code> on the runner</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Documentation</h2>
+      <div class="docs">
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver#readme">README<span>Install, capabilities, commands</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/blob/main/ARCHITECTURE.md">Architecture<span>Modules and the Platform seam</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/blob/main/GLOSSARY.md">Glossary<span>Host, Client, Raw input</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/tree/main/docs/adr">Decisions<span>Architecture decision records</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/blob/main/docs/xa11y-gaps.md">Known gaps<span>xa11y limits with repros</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/tree/main/examples/optics">Examples<span>optics suites for macOS and Linux</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/blob/main/CONTRIBUTING.md">Contributing<span>First run of the conformance suite</span></a>
+        <a href="https://github.com/chinmayajha/appium-xa11y-driver/blob/main/CHANGELOG.md">Changelog<span>Releases</span></a>
+        <a href="https://www.npmjs.com/package/appium-xa11y-driver">npm<span>appium-xa11y-driver</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Built on xa11y</h2>
+      <p class="lead">xa11y is a Playwright-style library for native desktop apps on macOS, Windows and Linux, with Rust, Python and JavaScript APIs. The driver uses its Node bindings, so you need no Rust toolchain.</p>
+      <div class="docs">
+        <a href="https://xa11y.dev">xa11y.dev<span>Guides and reference</span></a>
+        <a href="https://github.com/xa11y/xa11y">xa11y/xa11y<span>Source</span></a>
+        <a href="https://www.npmjs.com/package/@crowecawcaw/xa11y">@crowecawcaw/xa11y<span>Node bindings</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>MIT · <a href="https://github.com/chinmayajha/appium-xa11y-driver">chinmayajha/appium-xa11y-driver</a></span>
+    <span><a href="https://appium.io">Appium</a> · <a href="https://xa11y.dev">xa11y</a></span>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll("button.copy").forEach(function (b) {
+  b.addEventListener("click", function () {
+    navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent).then(function () {
+      b.textContent = "Copied";
+      setTimeout(function () { b.textContent = "Copy"; }, 1500);
+    });
+  });
+});
+fetch("https://registry.npmjs.org/appium-xa11y-driver/latest")
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (p) { if (p && p.version) document.getElementById("version").textContent = "v" + p.version; })
+  .catch(function () {});
+</script>
+</body>
+</html>
