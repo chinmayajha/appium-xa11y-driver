@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  App, Element, Locator, Screenshot, inputSim, screenshot,
+  App, Element, Locator, Screenshot, inputSim, screenshot, type InputSim,
 } from '@crowecawcaw/xa11y';
 import { BaseDriver, errors } from 'appium/driver';
 import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
@@ -41,6 +41,18 @@ function toXpath(strategy: string, selector: string): string {
   }
 }
 
+async function isForeground(app: App): Promise<boolean> {
+  const front = await App.foreground({ timeout: 0 }).catch(() => undefined);
+  return front?.pid === app.pid;
+}
+
+async function waitFor(check: () => Promise<boolean>, ms: number): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline && !(await check())) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
 
 function rawAttribute(el: Element, name: string): string | null {
@@ -60,6 +72,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     'xa11y: chord': { command: 'xa11yChord', params: { required: ['keys'] } },
     'xa11y: typeText': { command: 'xa11yTypeText', params: { required: ['text'] } },
     'xa11y: focusWindow': { command: 'xa11yFocusWindow', params: { optional: ['name'] } },
+    'xa11y: closeWindow': { command: 'xa11yCloseWindow', params: { optional: ['name'] } },
     'xa11y: launch': { command: 'xa11yLaunch', params: { required: ['app'], optional: ['arguments'] } },
     'xa11y: switchApp': { command: 'xa11ySwitchApp', params: { optional: ['name', 'pid'] } },
     'xa11y: listApps': { command: 'xa11yListApps' },
@@ -231,17 +244,20 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     if (el.actions.includes('press')) {
       await el.press();
     } else {
-      await this.input.click(el);
+      await (await this.foregroundInput()).click(el);
     }
   }
 
   async setValue(text: string | string[], id: string): Promise<void> {
     const el = await this.fresh(id);
-    await el.focus().catch(() => this.input.click(el));
-    await this.typeKeys(Array.isArray(text) ? text.join('') : text);
+    await el.focus().catch(async () => (await this.foregroundInput()).click(el));
+    await this.typeKeys(Array.isArray(text) ? text.join('') : text, el);
   }
 
-  private async typeKeys(text: string): Promise<void> {
+  private async typeKeys(text: string, into?: Element): Promise<void> {
+    const typeRun = async (run: string) => {
+      await (into?.actions.includes('set_value') ? into.typeText(run) : (await this.foregroundInput()).typeText(run));
+    };
     let run = '';
     for (const ch of text) {
       if (!isSpecialKey(ch)) {
@@ -249,14 +265,29 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
         continue;
       }
       if (run) {
-        await this.input.typeText(run);
+        await typeRun(run);
         run = '';
       }
-      await this.input.press(w3cKey(ch));
+      await (await this.foregroundInput()).press(w3cKey(ch));
     }
     if (run) {
-      await this.input.typeText(run);
+      await typeRun(run);
     }
+  }
+
+  private async foregroundInput(): Promise<InputSim> {
+    const app = this.requireApp();
+    if (!(await isForeground(app))) {
+      await (await this.mainWindow()).activate().catch(() => undefined);
+      await waitFor(() => isForeground(app), 1000);
+    }
+    if (!(await isForeground(app))) {
+      const front = await App.foreground({ timeout: 0 }).catch(() => undefined);
+      throw new errors.InvalidElementStateError(
+        `${app.name} is not the foreground app (${front?.name ?? 'unknown'} is), so keyboard and mouse input would reach that app`,
+      );
+    }
+    return this.input;
   }
 
   async clear(id: string): Promise<void> {
@@ -337,6 +368,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async performActions(actions: ActionSequence[]): Promise<void> {
+    await this.foregroundInput();
     await perform(this.actionContext(), actions);
   }
 
@@ -383,7 +415,8 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
 
   async xa11yChord(keys: string): Promise<void> {
     const chord = parseChord(keys);
-    await (chord.held.length ? this.input.chord(chord.key, chord.held) : this.input.press(chord.key));
+    const input = await this.foregroundInput();
+    await (chord.held.length ? input.chord(chord.key, chord.held) : input.press(chord.key));
   }
 
   async xa11yTypeText(text: string): Promise<void> {
@@ -392,6 +425,10 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
 
   async xa11yFocusWindow(name?: string): Promise<void> {
     await (await this.mainWindow(name)).activate();
+  }
+
+  async xa11yCloseWindow(name?: string): Promise<void> {
+    await (await this.mainWindow(name)).close();
   }
 
   async xa11yLaunch(app: string, args: string[] = []): Promise<{ pid: number; name: string }> {

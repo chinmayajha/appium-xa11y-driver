@@ -62,11 +62,17 @@ Each element is one XML tag named after its normalized role (`button`, `text_fie
 | `clickable`, `checkable`, `editable`, `scrollable` | Derived from the role and the actions the element supports |
 | `x`, `y`, `width`, `height` | Bounds in desktop coordinates |
 
-The tree is scoped to the attached app: its windows and its menu bar.
+The tree is scoped to the attached app and its windows. On macOS the menu bar is not in the tree.
 
 ## Coordinates
 
 Bounds, screenshots and pointer actions use one space: desktop coordinates of the primary display (points on macOS, so a Retina screenshot is scaled to points). A tap at a pixel of the screenshot lands on that point.
+
+## Input
+
+Send keys to an editable element puts the text in through the accessibility API, so the app can stay in the background.
+
+Chords, `xa11y: typeText` and W3C actions are synthetic input, and the OS sends them to the foreground app. Before each one, the driver brings the app's window to the front. If another app keeps the foreground (for example, a system alert), the command fails with `invalid element state` and sends no input.
 
 ## Commands
 
@@ -78,7 +84,7 @@ Sessions; find element(s); click, send keys, clear, text, attribute, rect, displ
 |---|---|
 | `xa11y: chord` | `keys`, e.g. `cmd+shift+s`, `ctrl+a`, `Enter` |
 | `xa11y: typeText` | `text` |
-| `xa11y: focusWindow` | `name` (optional) |
+| `xa11y: focusWindow`, `xa11y: closeWindow` | `name` (optional) |
 | `xa11y: launch` | `app`, `arguments` (optional); the session switches to it |
 | `xa11y: switchApp` | `name` or `pid` |
 | `xa11y: listApps`, `xa11y: listWindows`, `xa11y: activeAppInfo` | none |

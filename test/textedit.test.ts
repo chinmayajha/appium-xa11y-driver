@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { App } from '@crowecawcaw/xa11y';
+import { errors } from 'appium/driver';
 import { Xa11yDriver } from '../src';
 
 const mac = process.platform === 'darwin';
@@ -24,15 +26,15 @@ before(async () => {
     firstMatch: [{}],
   } as never);
   driver.implicitWaitMs = 5000;
-  await driver.xa11yChord('cmd+n');
 });
 
 after(async () => {
   if (!mac) {
     return;
   }
-  await driver.xa11yChord('cmd+w');
-  await driver.click(await find('-xa11y selector', "button[name='Delete']")).catch(() => undefined);
+  await driver.xa11yCloseWindow();
+  driver.implicitWaitMs = 2000;
+  await driver.click(await find('xpath', "//button[@name='Delete']")).catch(() => undefined);
   await driver.deleteSession();
 });
 
@@ -50,7 +52,7 @@ test('page source follows the XML contract', { skip: !mac }, async () => {
     assert.match(area, new RegExp(` ${attr}="`), `text_area lacks ${attr}`);
   }
   assert.match(area, / x="\d+" y="\d+" width="\d+" height="\d+"/);
-  assert.match(xml, /<menu_item [^>]*name="Format"/);
+  assert.match(xml, /\n<application [^>]*name="TextEdit"/);
 });
 
 test('screenshots share the coordinate scale of the bounds', { skip: !mac }, async () => {
@@ -61,8 +63,14 @@ test('screenshots share the coordinate scale of the bounds', { skip: !mac }, asy
   assert.ok(Math.abs(shot.height - rect.height) <= 1, `${shot.height} vs ${rect.height}`);
 });
 
-test('W3C key, pointer and wheel actions drive the document', { skip: !mac }, async () => {
+test('W3C key, pointer and wheel actions drive the document', { skip: !mac }, async (t) => {
   const area = await find('class name', 'text_area');
+  const front = await App.foreground({ timeout: 0 });
+  if (front.name !== 'TextEdit') {
+    await assert.rejects(driver.xa11yChord('cmd+a'), errors.InvalidElementStateError);
+    t.skip(`${front.name} holds the foreground, so raw input is refused`);
+    return;
+  }
   await driver.performActions([
     { type: 'pointer', id: 'mouse', actions: [
       { type: 'pointerMove', x: 0, y: 0, origin: { [ELEMENT]: area } },
@@ -81,9 +89,11 @@ test('W3C key, pointer and wheel actions drive the document', { skip: !mac }, as
   ] as never);
 });
 
-test('a menu opens from the menu bar and closes with Escape', { skip: !mac }, async () => {
-  await driver.click(await find('xpath', "//menu_bar/menu_item[@name='Format']"));
-  const font = await find('xpath', "//menu_bar/menu_item[@name='Format']//menu_item[@name='Font']");
-  assert.equal(await driver.elementDisplayed(font), true);
-  await driver.xa11yChord('Escape');
+test('a click toggles a format bar check box', { skip: !mac }, async () => {
+  const bold = await find('xpath', "//check_box[@name='bold']");
+  const was = await driver.elementSelected(bold);
+  await driver.click(bold);
+  assert.equal(await driver.elementSelected(bold), !was);
+  await driver.click(bold);
+  assert.equal(await driver.elementSelected(bold), was);
 });
