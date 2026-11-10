@@ -38,7 +38,10 @@ export function isGtk4(busName: string): Promise<boolean> {
     known = Promise.all([
       property(busName, 'org.a11y.atspi.Application', 'ToolkitName'),
       property(busName, 'org.a11y.atspi.Application', 'Version'),
-    ]).then(([name, version]) => name === 'GTK' && version.startsWith('4.'), () => false);
+    ]).then(([name, version]) => name === 'GTK' && version.startsWith('4.'), () => {
+      gtk4Apps.delete(busName);
+      return false;
+    });
     gtk4Apps.set(busName, known);
   }
   return known;

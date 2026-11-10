@@ -154,7 +154,10 @@ class X11 {
       const body = Buffer.alloc(4 + name.length + pad(name.length));
       body.writeUInt16LE(name.length, 0);
       body.write(name, 4, 'latin1');
-      known = this.request(OP_INTERN_ATOM, 0, body).then((r) => r.readUInt32LE(8));
+      known = this.request(OP_INTERN_ATOM, 0, body).then((r) => r.readUInt32LE(8), (e) => {
+        this.atoms.delete(name);
+        throw e;
+      });
       this.atoms.set(name, known);
     }
     return known;
