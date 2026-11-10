@@ -90,7 +90,13 @@ export class Tree {
     }
     for (let p = await el.parent(); p; p = await p.parent()) {
       const pr = p.role === 'application' ? null : await this.platform.elementRect(p, top);
-      r = (pr && intersect(r, pr)) ?? r;
+      if (pr) {
+        const shown = intersect(r, pr);
+        if (!shown) {
+          throw new errors.ElementNotInteractableError(`The ${el.role} element is outside the visible part of its container`);
+        }
+        r = shown;
+      }
     }
     return r;
   }
