@@ -28,6 +28,7 @@ interface Resolved {
 
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
 const FIND_POLL_MS = 300;
+const MAX_HANDLES = 5000;
 
 function intersect(a: Rect, b: Rect): Rect | null {
   const x = Math.max(a.x, b.x);
@@ -136,6 +137,9 @@ export class Tree {
   }
 
   private remember(found: Found): string {
+    if (this.handles.size >= MAX_HANDLES) {
+      this.handles.delete(this.handles.keys().next().value as string);
+    }
     const id = randomUUID();
     this.handles.set(id, { ...found, pid: this.target.app.pid, identity: this.platform.identity(found.el), name: found.el.name ?? '' });
     return id;
