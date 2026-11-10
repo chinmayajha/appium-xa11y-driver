@@ -39,6 +39,7 @@ export class Input {
   private async rawClick(id: string): Promise<void> {
     const at = await this.tree.visibleCenter(id);
     await this.guard(true);
+    this.state.synced = false;
     await this.sim.click([at.x, at.y]);
   }
 
@@ -49,8 +50,8 @@ export class Input {
     let run = '';
     for (const ch of text) {
       const key = keyFor(ch, viaValue);
-      if (!key) {
-        run += ch;
+      if (!key || [...key].length === 1) {
+        run += key ?? ch;
         continue;
       }
       await this.typeRun(run, viaValue ? el : undefined);

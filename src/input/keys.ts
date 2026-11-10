@@ -39,6 +39,10 @@ const W3C_KEYS: Record<string, string> = {
 for (let n = 1; n <= 12; n++) {
   W3C_KEYS[String.fromCharCode(0xe030 + n)] = `F${n}`;
 }
+// The numpad keys type their characters, because xa11y has no numpad key codes.
+[...';=0123456789*+,-./'].forEach((ch, i) => {
+  W3C_KEYS[String.fromCharCode(0xe018 + i)] = ch;
+});
 
 const NAMES: Record<string, string> = {
   cmd: 'Meta', command: 'Meta', meta: 'Meta', super: 'Meta', win: 'Meta', windows: 'Meta',
@@ -55,12 +59,24 @@ const NAMES: Record<string, string> = {
 
 export const MODIFIERS = new Set(['Shift', 'Ctrl', 'Alt', 'Meta']);
 
+function isW3cCode(value: string): boolean {
+  const code = value.length === 1 ? value.charCodeAt(0) : 0;
+  return code > 0xe000 && code <= 0xe05d;
+}
+
 export function w3cKey(value: string): string {
-  return W3C_KEYS[value] ?? value;
+  const key = W3C_KEYS[value];
+  if (key) {
+    return key;
+  }
+  if (isW3cCode(value)) {
+    throw new errors.InvalidArgumentError(`The W3C key U+${value.charCodeAt(0).toString(16).toUpperCase()} has no desktop key`);
+  }
+  return value;
 }
 
 export function isSpecialKey(char: string): boolean {
-  return char in W3C_KEYS;
+  return char in W3C_KEYS || isW3cCode(char);
 }
 
 function keyName(token: string, primary: string): string {

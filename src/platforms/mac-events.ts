@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { errors } from 'appium/driver';
 
 const run = promisify(execFile);
 
 function jxa(script: string, args: (string | number)[]): Promise<{ stdout: string }> {
-  return run('osascript', ['-l', 'JavaScript', '-e', script, ...args.map(String)]);
+  return run('osascript', ['-l', 'JavaScript', '-e', script, '--', ...args.map(String)]);
 }
 
 // Wheel-inverting tools (Unnatural Scroll Wheels, Mos, Scroll Reverser) flip line events and
@@ -54,7 +55,7 @@ export async function postPixelScroll(at: { x: number; y: number }, dx: number, 
 /** Clear the flags that the released keys leave in the session state, so the next synthetic key does not carry them. */
 export async function clearFlags(keys: string[]): Promise<void> {
   const mask = keys.reduce((m, k) => m | (KEY_FLAGS[k] ?? 0), 0);
-  if (mask) {
-    await jxa(CLEAR_FLAGS, [mask]);
+  if (mask && (await jxa(CLEAR_FLAGS, [mask])).stdout.trim() === 'held') {
+    throw new errors.UnknownError(`The modifier flags of ${keys.join(', ')} are still set 1 s after their release`);
   }
 }

@@ -25,6 +25,8 @@ export interface ActionSequence {
 
 export interface InputState {
   pointer: Point;
+  /** False when the OS pointer may be away from `pointer`. */
+  synced: boolean;
   buttons: Set<MouseButtonName>;
   keys: Set<string>;
   releasedAt: number;
@@ -34,7 +36,7 @@ export interface ActionContext {
   platform: Platform;
   input: InputSim;
   state: InputState;
-  /** The Frontmost guard, called before each Raw input event. */
+  /** The Frontmost guard, called before each Raw input event except a release. */
   guard: () => Promise<void>;
   elementCenter: (elementId: string) => Promise<Point>;
   desktop: () => Promise<Rect>;
@@ -43,7 +45,7 @@ export interface ActionContext {
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
 
 export function newInputState(): InputState {
-  return { pointer: { x: 0, y: 0 }, buttons: new Set(), keys: new Set(), releasedAt: 0 };
+  return { pointer: { x: 0, y: 0 }, synced: false, buttons: new Set(), keys: new Set(), releasedAt: 0 };
 }
 
 async function afterRelease(ctx: ActionContext): Promise<void> {
@@ -77,7 +79,26 @@ async function resolvePoint(ctx: ActionContext, a: Action): Promise<Point> {
 }
 
 function buttonOf(a: Action): MouseButtonName {
-  return BUTTONS[a.button ?? 0] ?? 'left';
+  const button = BUTTONS[a.button ?? 0];
+  if (!button) {
+    throw new errors.UnsupportedOperationError(`Pointer button ${a.button} is not supported; use 0 (left), 1 (middle) or 2 (right)`);
+  }
+  return button;
+}
+
+async function onDesktop(ctx: ActionContext, to: Point): Promise<Point> {
+  const d = await ctx.desktop();
+  if (to.x < d.x || to.y < d.y || to.x >= d.x + d.width || to.y >= d.y + d.height) {
+    throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
+  }
+  return to;
+}
+
+async function atPointer(ctx: ActionContext): Promise<void> {
+  if (!ctx.state.synced) {
+    await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
+    ctx.state.synced = true;
+  }
 }
 
 function pairedPointerUp(a: Action, next: Action | undefined): boolean {
@@ -92,36 +113,39 @@ type Handler = (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean
 
 const ACTIONS: Record<string, Handler> = {
   async pointerMove(ctx, a) {
-    const to = await resolvePoint(ctx, a);
-    const d = await ctx.desktop();
-    if (to.x < d.x || to.y < d.y || to.x >= d.x + d.width || to.y >= d.y + d.height) {
-      throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
-    }
-    ctx.state.pointer = to;
+    ctx.state.pointer = await onDesktop(ctx, await resolvePoint(ctx, a));
+    ctx.state.synced = false;
     await afterRelease(ctx);
-    await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
+    await ctx.guard();
+    await atPointer(ctx);
     return false;
   },
   async pointerDown(ctx, a, next) {
     const button = buttonOf(a);
     await afterRelease(ctx);
+    await ctx.guard();
     if (pairedPointerUp(a, next)) {
       await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
       ctx.state.releasedAt = Date.now();
+      ctx.state.synced = true;
       return true;
     }
+    await atPointer(ctx);
     ctx.state.buttons.add(button);
     await ctx.input.mouseDown(button);
     return false;
   },
   async pointerUp(ctx, a) {
-    ctx.state.buttons.delete(buttonOf(a));
-    await ctx.input.mouseUp(buttonOf(a));
+    const button = buttonOf(a);
+    ctx.state.buttons.delete(button);
+    await atPointer(ctx);
+    await ctx.input.mouseUp(button);
     ctx.state.releasedAt = Date.now();
     return false;
   },
   async keyDown(ctx, a, next) {
     const key = w3cKey(a.value ?? '');
+    await ctx.guard();
     if (pairedKeyUp(key, next)) {
       await ctx.platform.pressKey(ctx.input, key);
       return true;
@@ -137,7 +161,11 @@ const ACTIONS: Record<string, Handler> = {
     return false;
   },
   async scroll(ctx, a) {
-    await ctx.platform.wheel(ctx.input, await resolvePoint(ctx, a), a.deltaX ?? 0, a.deltaY ?? 0);
+    const at = await onDesktop(ctx, await resolvePoint(ctx, a));
+    await afterRelease(ctx);
+    await ctx.guard();
+    ctx.state.synced = false;
+    await ctx.platform.wheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0);
     return false;
   },
 };
@@ -156,16 +184,21 @@ export async function pressChord(platform: Platform, input: InputSim, key: strin
   }
 }
 
-async function guarded(ctx: ActionContext, a: Action, next?: Action): Promise<boolean> {
+async function dispatch(ctx: ActionContext, a: Action, next?: Action): Promise<boolean> {
   const handler = ACTIONS[a.type];
-  if (!handler) {
-    return false;
-  }
-  await ctx.guard();
-  return handler(ctx, a, next);
+  return handler ? handler(ctx, a, next) : false;
 }
 
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
+  try {
+    await performTicks(ctx, sequences);
+  } catch (e) {
+    await release(ctx).catch(() => undefined);
+    throw e;
+  }
+}
+
+async function performTicks(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
   const cursors = sequences.map(() => 0);
   const ticks = Math.max(0, ...sequences.map((s) => s.actions.length));
   for (let tick = 0; tick < ticks; tick++) {
@@ -177,7 +210,7 @@ export async function perform(ctx: ActionContext, sequences: ActionSequence[]): 
       }
       if (a.type === 'pause') {
         pause = Math.max(pause, a.duration ?? 0);
-      } else if (await guarded(ctx, a, seq.actions[cursors[i] + 1])) {
+      } else if (await dispatch(ctx, a, seq.actions[cursors[i] + 1])) {
         cursors[i]++;
       }
       cursors[i]++;
