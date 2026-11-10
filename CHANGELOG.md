@@ -4,6 +4,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+- Windows is supported: the conformance suite passes on Windows Server 2022 and on the GitHub `windows-latest` runner.
+
 ## [0.1.0]
 
 - First release: macOS and Linux (X11); Windows experimental.
