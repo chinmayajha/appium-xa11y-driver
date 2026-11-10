@@ -1,4 +1,3 @@
-# Untested: written and checked with actionlint, but not run on GitHub yet.
 name: CI
 
 on:
