@@ -300,7 +300,7 @@ describe('app lifecycle', () => {
     await s.delete().catch(() => undefined);
   });
 
-  test('activating the running app keeps the same process', { todo: fx.platformName === 'Mac' && 'plan 009: activateApp starts a second instance when given a bundle id' }, async () => {
+  test('activating the running app keeps the same process', async () => {
     const before = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
     await s.activateApp(fx.calculator.app);
     await s.activateApp(fx.calculator.app);
@@ -310,7 +310,7 @@ describe('app lifecycle', () => {
     assert.equal(apps.filter((a) => a.name === before.name).length, 1);
   });
 
-  test('terminating another app id leaves the Session app running', { todo: 'plan 009: terminateApp ignores appId' }, async () => {
+  test('terminating another app id leaves the Session app running', async () => {
     assert.equal(await s.terminateApp('no.such.app'), false);
     assert.ok(await s.find('xpath', fx.calculator.buttons['7']));
   });
