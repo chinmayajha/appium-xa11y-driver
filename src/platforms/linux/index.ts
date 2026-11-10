@@ -41,8 +41,8 @@ async function gtk4Rect(el: Element, topLevel?: Element): Promise<Rect | null> {
   if (!origin || el === top) {
     return origin;
   }
-  const inWindow = await windowExtents(el);
-  return { ...inWindow, x: origin.x + inWindow.x, y: origin.y + inWindow.y };
+  const inWindow = await windowExtents(el).catch(() => null);
+  return inWindow && { ...inWindow, x: origin.x + inWindow.x, y: origin.y + inWindow.y };
 }
 
 async function elementRect(el: Element, topLevel?: Element): Promise<Rect | null> {

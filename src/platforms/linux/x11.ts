@@ -77,7 +77,7 @@ class X11 {
   private atoms = new Map<string, Promise<number>>();
 
   private constructor(private socket: Socket, readonly root: number) {
-    socket.on('data', (chunk) => this.receive(chunk));
+    socket.on('data', (chunk) => this.replies.parse(socket, () => this.receive(chunk)));
     socket.on('error', (e) => this.replies.closed(e));
     socket.on('close', () => this.replies.closed(new Error('The X server closed the connection')));
     socket.unref();

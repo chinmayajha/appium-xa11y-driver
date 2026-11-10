@@ -56,6 +56,16 @@ export class Replies<T> {
     this.closeHandlers.push(handler);
   }
 
+  /** Runs a parse of received bytes; a malformed stream fails every request and drops the socket. */
+  parse(socket: { destroy(): void }, read: () => void): void {
+    try {
+      read();
+    } catch (e) {
+      this.failAll(e instanceof Error ? e : new Error(String(e)));
+      socket.destroy();
+    }
+  }
+
   /** The socket closed: fail every waiting request and tell the owners of the connection. */
   closed(e: Error): void {
     this.failAll(e);

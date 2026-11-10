@@ -4,6 +4,7 @@ import { Replies } from './replies';
 type Arg = { u: number } | { s: string };
 
 const CALL_TIMEOUT_MS = 3000;
+const LITTLE_ENDIAN = 0x6c;
 
 class Writer {
   private bytes: number[] = [];
@@ -165,7 +166,7 @@ export class Bus {
   private data = Buffer.alloc(0);
 
   private constructor(private socket: net.Socket) {
-    socket.on('data', (chunk) => this.receive(chunk));
+    socket.on('data', (chunk) => this.replies.parse(socket, () => this.receive(chunk)));
     socket.on('close', () => this.replies.closed(new Error('D-Bus connection closed')));
     socket.on('error', (e) => this.replies.closed(e));
   }
@@ -202,6 +203,9 @@ export class Bus {
   private receive(chunk: Buffer): void {
     this.data = Buffer.concat([this.data, chunk]);
     while (this.data.length >= 16) {
+      if (this.data[0] !== LITTLE_ENDIAN) {
+        throw new Error('The D-Bus message is not little-endian');
+      }
       const fieldsLen = this.data.readUInt32LE(12);
       const headerEnd = 16 + fieldsLen + ((8 - ((16 + fieldsLen) % 8)) % 8);
       const total = headerEnd + this.data.readUInt32LE(4);
