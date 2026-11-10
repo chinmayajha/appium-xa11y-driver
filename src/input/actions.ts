@@ -43,6 +43,9 @@ export interface ActionContext {
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
+const MOVE_STEP_MS = 16;
+const DRAG_MIN_STEPS = 5;
+const MAX_MOVE_STEPS = 120;
 
 export function newInputState(): InputState {
   return { pointer: { x: 0, y: 0 }, synced: false, buttons: new Set(), keys: new Set(), releasedAt: 0 };
@@ -101,6 +104,11 @@ async function atPointer(ctx: ActionContext): Promise<void> {
   }
 }
 
+function moveSteps(duration: number, dragging: boolean): number {
+  const timed = Math.ceil(duration / MOVE_STEP_MS);
+  return Math.min(MAX_MOVE_STEPS, Math.max(dragging ? DRAG_MIN_STEPS : 1, timed));
+}
+
 function pairedPointerUp(a: Action, next: Action | undefined): boolean {
   return next?.type === 'pointerUp' && buttonOf(next) === buttonOf(a);
 }
@@ -113,11 +121,20 @@ type Handler = (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean
 
 const ACTIONS: Record<string, Handler> = {
   async pointerMove(ctx, a) {
-    ctx.state.pointer = await onDesktop(ctx, await resolvePoint(ctx, a));
-    ctx.state.synced = false;
+    const to = await onDesktop(ctx, await resolvePoint(ctx, a));
     await afterRelease(ctx);
-    await ctx.guard();
-    await atPointer(ctx);
+    const from = ctx.state.pointer;
+    const steps = ctx.state.synced ? moveSteps(a.duration ?? 0, ctx.state.buttons.size > 0) : 1;
+    const wait = steps > 1 ? Math.max(MOVE_STEP_MS, (a.duration ?? 0) / steps) : 0;
+    for (let i = 1; i <= steps; i++) {
+      await ctx.guard();
+      ctx.state.pointer = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+      await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
+      ctx.state.synced = true;
+      if (wait && i < steps) {
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
     return false;
   },
   async pointerDown(ctx, a, next) {
