@@ -285,6 +285,7 @@ describe('calculator', () => {
     const dx = moved.x - win.x;
     const dy = moved.y - win.y;
     assert.ok(dx !== 0 || dy !== 0, `the window did not move from ${JSON.stringify(win)}`);
+    assert.deepEqual(await s.call('POST', '/window/rect', moved), moved, 'setting the rect that the window has does not change it');
     await eventually(async () => s.rect(await button('7')), (r) => r.x === before.x + dx && r.y === before.y + dy);
   });
 
@@ -393,7 +394,34 @@ describe('session clean-up', () => {
   });
 });
 
+describe('attach', () => {
+  test('a session with no app attaches to the frontmost app', async () => {
+    const s = await open(fx.editor.app);
+    try {
+      const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
+      const front = await Session.create(URL, { platformName: fx.platformName, 'appium:automationName': 'Xa11y' });
+      try {
+        assert.equal((await front.execute<{ pid: number }>('xa11y: activeAppInfo')).pid, editor.pid);
+      } finally {
+        await front.delete();
+      }
+    } finally {
+      await s.delete();
+    }
+  });
+});
+
 describe('session errors', () => {
+  test('a failed command with failureArtifacts still gives its own error', async () => {
+    const s = await open(fx.editor.app, { 'appium:failureArtifacts': '/tmp/appium-xa11y-artifacts' });
+    try {
+      await s.call('POST', '/timeouts', { implicit: 0 });
+      await rejectsWith(s.find('xpath', "//button[@name='no such button']"), 'no such element');
+    } finally {
+      await s.delete();
+    }
+  });
+
   test('a bad app path fails the session and Appium keeps running', async () => {
     const codes = fx.platformName === 'Mac' ? ['session not created', 'invalid argument'] : ['session not created'];
     await assert.rejects(open('/nonexistent/app-xa11y-test'), (e: unknown) => codes.includes((e as { code?: string }).code ?? ''));
