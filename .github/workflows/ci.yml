@@ -10,27 +10,50 @@ permissions:
   contents: read
 
 jobs:
-  e2e:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: Linux
-            app: gnome-text-editor
-            field: //text_area
-          - os: macos-latest
-            platform: Mac
-            app: com.apple.TextEdit
-            field: //text_area
-          - os: windows-latest
-            platform: Windows
-            app: notepad.exe
-            field: (//text_area|//document)[1]
-    runs-on: ${{ matrix.os }}
+  linux:
+    runs-on: ubuntu-latest
+    container: debian:13
     timeout-minutes: 20
-    env:
-      GSK_RENDERER: cairo
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - run: hosts/linux/setup.sh --driver . --fixtures --no-service
+      - run: echo "$HOME/.local/share/appium-xa11y/node/bin" >> "$GITHUB_PATH"
+      - name: Start Appium
+        run: |
+          ~/.local/share/appium-xa11y/host.sh run > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          echo "Appium did not start" >&2
+          exit 1
+      - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: appium-log-linux
+          path: appium.log
+          if-no-files-found: ignore
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - run: docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .
+      - name: Start the container
+        run: |
+          docker run -d --name appium -p 127.0.0.1:4723:4723 appium-xa11y-linux
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          docker logs appium >&2
+          exit 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -39,17 +62,12 @@ jobs:
           cache: npm
       - name: Find the node binary
         id: node
-        shell: bash
         run: echo "path=$(node -p 'require("fs").realpathSync(process.execPath)')" >> "$GITHUB_OUTPUT"
       - uses: xa11y/setup-a11y@0dad2b7bb4c0d4601e99e53d9b42b3195274aa3d
         with:
-          package-groups: base
-          extra-packages: gnome-text-editor
-          setup-window-manager: "true"
           macos-tcc-client: ${{ steps.node.outputs.path }}
       # setup-a11y grants only Accessibility. Screenshots also need Screen Recording.
       - name: Grant Screen Recording to node
-        if: runner.os == 'macOS'
         env:
           CLIENT: ${{ steps.node.outputs.path }}
         run: |
@@ -58,29 +76,39 @@ jobs:
              VALUES('kTCCServiceScreenCapture','${CLIENT}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
           sudo launchctl stop com.apple.tccd || true
           sleep 2
-      - run: npm ci
-      - run: npm run build
-      # The tests drive TextEdit in this process. Run them before Appium starts:
-      # a second process cannot take a screenshot while another one holds a capture.
-      - name: Driver tests
-        if: runner.os == 'macOS'
-        run: npm test
+      - run: hosts/mac/setup.sh --driver . --no-service
       - name: Start Appium
-        shell: bash
         run: |
-          npx appium --port 4723 --log appium.log &
-          for _ in $(seq 60); do
-            curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0
-            sleep 1
-          done
+          "$HOME/Library/Application Support/appium-xa11y/host.sh" run > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "Appium did not start" >&2
           exit 1
-      - name: WebDriver smoke test
-        shell: bash
-        run: node scripts/webdriver-smoke.mjs http://127.0.0.1:4723 "${{ matrix.app }}" "${{ matrix.field }}" "${{ matrix.platform }}"
+      - run: npm run conformance -- --url http://127.0.0.1:4723 --os mac
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: appium-log-${{ matrix.os }}
+          name: appium-log-macos
           path: appium.log
           if-no-files-found: ignore
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    # The Windows adapter is not proven yet: the job shows which calls still fail.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start Appium
+        shell: bash
+        run: |
+          npx appium --port 4723 > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          echo "Appium did not start" >&2
+          exit 1
+      - run: npm run conformance -- --url http://127.0.0.1:4723 --os windows

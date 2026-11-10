@@ -16,6 +16,7 @@
   "types": "./build/src/index.d.ts",
   "files": [
     "build/src",
+    "hosts",
     "README.md",
     "LICENSE"
   ],

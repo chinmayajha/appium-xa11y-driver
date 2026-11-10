@@ -3,3 +3,4 @@ build
 .git
 .metrics
 *.log
+target

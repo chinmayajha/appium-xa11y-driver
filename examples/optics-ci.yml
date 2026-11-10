@@ -23,6 +23,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            container: debian:13
             host: linux
             setup: --fixtures --no-service
             run: ~/.local/share/appium-xa11y/host.sh run
@@ -31,15 +32,13 @@ jobs:
             setup: --no-service
             run: '"$HOME/Library/Application Support/appium-xa11y/host.sh" run'
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.12"
       - name: Find the node binary
         id: node
         run: echo "path=$(node -p 'require("fs").realpathSync(process.execPath)')" >> "$GITHUB_OUTPUT"
@@ -65,7 +64,9 @@ jobs:
           npm pack --silent appium-xa11y-driver | xargs tar -xzf
           # shellcheck disable=SC2086
           "package/hosts/$HOST/setup.sh" $SETUP
-          pip install optics-framework
+          if [ "$HOST" = linux ]; then apt-get install -y -qq --no-install-recommends python3-venv; fi
+          python3 -m venv .optics
+          .optics/bin/pip install -q optics-framework
       - name: Start Appium
         run: |
           ${{ matrix.run }} > appium.log 2>&1 &
@@ -75,7 +76,7 @@ jobs:
       - name: Run the suite
         env:
           SUITE: ${{ matrix.host == 'linux' && inputs.linux-suite || inputs.mac-suite }}
-        run: optics execute "$SUITE"
+        run: .optics/bin/optics execute "$SUITE"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

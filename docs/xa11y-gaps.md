@@ -68,7 +68,7 @@ Seen: `ActionNotSupportedError: character '\n' (keysym 0x100000a) has no keycode
 console.log((await (await xa11y.App.byName('gnome-text-editor')).windows()).length);
 ```
 
-Seen on Ubuntu 24.04 (GTK 4.14): `0`. Expected: one window. xa11y #485 (closed, not released). GTK 4.18 on Debian 13 gives the role `window`.
+Seen on Ubuntu 24.04 (GTK 4.14): `0`. The same occurs with `gnome-calculator`: the children of the application are two `group` elements (AT-SPI `generic`) with `active` false and bounds at (0, 0), and `activate()` gives `activate not supported on group`. The button "7" also has its bounds at (0, 0). Expected: one window, with its X11 position and an activate action. xa11y #485 (closed, not released) is related. GTK 4.18 on Debian 13 gives the role `window`. For this reason, the Docker image and the Linux CI job use Debian 13.
 
 ## macOS
 

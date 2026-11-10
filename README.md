@@ -98,6 +98,8 @@ Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press acti
 
 On macOS the driver sends wheel actions as continuous pixel scroll events, the same events that a trackpad sends. Tools that invert the mouse wheel change only line events, so a positive `deltaY` scrolls down on all Macs. On Linux the driver changes wheel deltas to scroll lines of 20 px.
 
+After a pointer button is released, the driver waits until 50 ms have passed before the next pointer move or press. GTK 4 loses a click that comes in the same turn of its main loop as the previous release. The wait does not change a double click.
+
 ## Surfaces
 
 | Surface | Prepare the Host | The Client connects to |
@@ -135,6 +137,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md#adding-an-operating-system). In short: wr
 
 - Windows: the adapter is not proven on a real Host. The Frontmost check, activation, the wheel and key release are not supported yet.
 - Linux: only X11. On Wayland, GTK 4 elements have no bounds.
+- Linux: GTK 4 apps are proven on GTK 4.18 (Debian 13). On GTK 4.14 (Ubuntu 24.04), GTK 4 apps have no window and their elements have no bounds, so window commands, pointer actions and element screenshots fail. GTK 3 apps work on Ubuntu 24.04. Docker and CI use Debian 13.
 - Linux: elements have no Stable id.
 - Linux, GTK 4: AT-SPI runs an action later in the main loop of the app. If you mix an Accessibility click and Raw input, the Raw input can arrive first.
 - macOS: a second process cannot take a screenshot while a different process holds a capture.
