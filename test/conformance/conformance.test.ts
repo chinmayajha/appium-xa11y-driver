@@ -150,6 +150,36 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'a');
   });
 
+  test('a drag across the text field selects its text', async () => {
+    await s.clear(field);
+    await s.type(field, 'hello world');
+    await eventually(text, (v) => v === 'hello world');
+    const { width, height } = pngSize(await s.screenshot(field));
+    const origin = { [ELEMENT]: field };
+    await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', duration: 0, x: 3 - Math.floor(width / 2), y: 3 - Math.floor(height / 2), origin },
+      { type: 'pointerDown', button: 0 },
+      { type: 'pointerMove', duration: 300, x: Math.floor(width / 2) - 3, y: Math.floor(height / 2) - 3, origin },
+      { type: 'pointerUp', button: 0 },
+    ] }]);
+    await s.execute('xa11y: typeText', { text: 'X' });
+    await eventually(text, (v) => v.trim() === 'X');
+  });
+
+  test('two clicks at one place are a double-click', async () => {
+    await s.clear(field);
+    await s.type(field, 'hello world');
+    await eventually(text, (v) => v === 'hello world');
+    const { width, height } = pngSize(await s.screenshot(field));
+    const click = [{ type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }];
+    await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', duration: 0, x: 14 - Math.floor(width / 2), y: 12 - Math.floor(height / 2), origin: { [ELEMENT]: field } },
+      ...click, ...click,
+    ] }]);
+    await s.execute('xa11y: typeText', { text: 'X' });
+    await eventually(text, (v) => v.includes('X') && v.trim().length < 'hello world'.length);
+  });
+
   test('the Frontmost guard refuses raw input while another app is in front', async () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
@@ -288,6 +318,25 @@ describe('calculator', () => {
   test('an unknown action type is an invalid argument', async () => {
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerWiggle' }] }]), 'invalid argument');
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerCancel' }] }]), 'unsupported operation');
+  });
+
+  test('a pointer move takes its duration and ends on its target', async () => {
+    await s.click(await button('C'));
+    await s.click(await button('7'));
+    const start = center(await s.rect(await button('+')));
+    const five = await button('5');
+    const began = Date.now();
+    await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', duration: 0, ...start, origin: 'viewport' },
+      { type: 'pointerMove', duration: 300, x: 0, y: 0, origin: { [ELEMENT]: five } },
+    ] }]);
+    const took = Date.now() - began;
+    await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerDown', button: 0 },
+      { type: 'pointerUp', button: 0 },
+    ] }]);
+    assert.ok(took >= 300, `the move took ${took} ms`);
+    await shows('75');
   });
 
   test('moving the window moves its elements by the same amount', async () => {
