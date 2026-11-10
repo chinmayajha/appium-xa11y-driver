@@ -66,7 +66,7 @@ The tree is scoped to the attached app and its windows. On macOS the menu bar is
 
 ## Coordinates
 
-Bounds, screenshots and pointer actions use one space: desktop coordinates of the primary display (points on macOS, so a Retina screenshot is scaled to points). A tap at a pixel of the screenshot lands on that point.
+Bounds, screenshots and pointer actions use one space: desktop coordinates of the primary display (points on macOS, so a Retina screenshot is scaled to points). A tap at a pixel of the screenshot lands on that point. Element clicks and element screenshots use the part of the element that its scroll view and window show, because a text area can be taller than the screen.
 
 ## Input
 

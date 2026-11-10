@@ -21,6 +21,16 @@ interface Handle {
 }
 
 const W3C_ELEMENT_KEY = 'element-6066-11e4-a52e-4f304d4c4746';
+// Raw keyboard input on Linux cannot type control characters, so they are sent as the keys that make them.
+const CONTROL_KEYS: Record<string, string> = { '\n': 'Enter', '\r': 'Enter', '\t': 'Tab' };
+
+function keyFor(ch: string, viaValue: boolean): string | undefined {
+  if (isSpecialKey(ch)) {
+    return w3cKey(ch);
+  }
+  return viaValue ? undefined : CONTROL_KEYS[ch];
+}
+
 const LOCATOR_STRATEGIES = ['xpath', 'accessibility id', 'class name', 'id', 'name', '-xa11y selector'];
 
 function quoteXpath(s: string): string {
@@ -55,14 +65,19 @@ async function waitFor(check: () => Promise<boolean>, ms: number): Promise<void>
 }
 
 /** Center of the part of the element that its ancestors (scroll areas, the window) leave visible. */
-async function visibleCenter(el: Element): Promise<Point> {
+async function visibleBounds(el: Element): Promise<Rect> {
   let r = el.bounds;
   if (!r) {
-    throw new errors.InvalidElementStateError(`The ${el.role} element has no bounds to point at`);
+    throw new errors.InvalidElementStateError(`The ${el.role} element has no bounds`);
   }
   for (let p = await el.parent(); p; p = await p.parent()) {
     r = (p.bounds && intersect(r, p.bounds)) ?? r;
   }
+  return r;
+}
+
+async function visibleCenter(el: Element): Promise<Point> {
+  const r = await visibleBounds(el);
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 }
 
@@ -286,12 +301,14 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   private async typeKeys(text: string, into?: Element): Promise<void> {
+    const viaValue = into?.actions.includes('set_value') ?? false;
     const typeRun = async (run: string) => {
-      await (into?.actions.includes('set_value') ? into.typeText(run) : (await this.foregroundInput()).typeText(run));
+      await (viaValue ? into!.typeText(run) : (await this.foregroundInput()).typeText(run));
     };
     let run = '';
     for (const ch of text) {
-      if (!isSpecialKey(ch)) {
+      const key = keyFor(ch, viaValue);
+      if (!key) {
         run += ch;
         continue;
       }
@@ -299,7 +316,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
         await typeRun(run);
         run = '';
       }
-      await (await this.foregroundInput()).press(w3cKey(ch));
+      await (await this.foregroundInput()).press(key);
     }
     if (run) {
       await typeRun(run);
@@ -384,7 +401,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async getElementScreenshot(id: string): Promise<string> {
-    return this.toPng(await screenshot({ element: await this.fresh(id) }));
+    return this.toPng(await screenshot({ region: await visibleBounds(await this.fresh(id)) }));
   }
 
   private requirePlatform(): Platform {
