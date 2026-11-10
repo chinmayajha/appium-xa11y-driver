@@ -2,7 +2,7 @@
 export interface Fixtures {
   platformName: string;
   primary: string;
-  editor: { app: string; field: string };
+  editor: { app: string; field: string; siblingBefore?: string };
   calculator: { app: string; buttons: Record<'C' | '7' | '5' | '+' | '=', string>; stableId?: { id: string; name: string } };
   checkBox?: { app: string; xpath: string };
 }
@@ -11,7 +11,7 @@ const fixtures: Record<string, Fixtures> = {
   mac: {
     platformName: 'Mac',
     primary: '',
-    editor: { app: 'com.apple.TextEdit', field: '//text_area' },
+    editor: { app: 'com.apple.TextEdit', field: '//text_area', siblingBefore: 'primary+ctrl+r' },
     calculator: {
       app: 'com.apple.calculator',
       buttons: { C: "//button[@id='AllClear' or @id='Clear']", 7: "//button[@id='Seven']", 5: "//button[@id='Five']", '+': "//button[@id='Add']", '=': "//button[@id='Equals']" },

@@ -85,6 +85,17 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'ac\nd');
   });
 
+  test('a handle does not move to a different element when the tree changes', { skip: !fx.editor.siblingBefore && 'no fixture inserts a sibling' }, async () => {
+    const toggle = { keys: fx.editor.siblingBefore };
+    await s.clear(field);
+    await s.execute('xa11y: chord', toggle);
+    const outcome = await s.type(field, 'x').then(() => 'typed', (e: { code?: string }) => e.code);
+    await s.execute('xa11y: chord', toggle);
+    field = await s.find('xpath', fx.editor.field);
+    assert.equal(await text(), outcome === 'typed' ? 'x' : '', `outcome: ${outcome}`);
+    assert.ok(outcome === 'typed' || outcome === 'stale element reference', `outcome: ${outcome}`);
+  });
+
   test('a primary+a chord selects all', async () => {
     await s.clear(field);
     await s.type(field, 'replace me');
