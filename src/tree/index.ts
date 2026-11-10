@@ -175,6 +175,28 @@ export class Tree {
     return { el, top };
   }
 
+  /** Walks the handle's path; at the last step the one sibling with the handle's identity wins, because a change before it shifts the index. */
+  private async follow(h: Handle): Promise<Resolved> {
+    const path = h.path ?? [];
+    const parent = await this.walk(path.slice(0, -1));
+    if (!path.length) {
+      return parent;
+    }
+    const kids = await parent.el.children();
+    const i = this.indexOf(h.el, kids, path[path.length - 1]);
+    if (!kids[i]) {
+      throw new errors.StaleElementReferenceError('The element is no longer in the tree');
+    }
+    h.path = [...path.slice(0, -1), i];
+    return { el: kids[i], top: parent.top ?? kids[i] };
+  }
+
+  private indexOf(el: Element, kids: Element[], at: number): number {
+    const id = this.platform.identity(el);
+    const same = id ? kids.flatMap((k, i) => (this.platform.identity(k) === id ? [i] : [])) : [];
+    return same.length === 1 ? same[0] : at;
+  }
+
   private changed(h: Handle, el: Element): string | undefined {
     if (el.role !== h.el.role) {
       return `Element changed from ${h.el.role} to ${el.role}`;
@@ -192,7 +214,7 @@ export class Tree {
     if (this.target.app.pid !== h.pid) {
       throw new errors.StaleElementReferenceError('The element belongs to another app');
     }
-    const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.walk(h.path ?? [])).catch(async (e) => {
+    const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.follow(h)).catch(async (e) => {
       const err = asWebDriverError(e) as Error;
       // When the app has exited, the walk fails with a platform error (for example an AT-SPI NoReply), not with not-found.
       if (err instanceof errors.NoSuchElementError || !(await this.target.alive())) {
