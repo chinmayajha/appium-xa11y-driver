@@ -17,6 +17,14 @@ async function topLevelOf(el: Element): Promise<Element> {
   return node;
 }
 
+function pruneFrames(now: number): void {
+  for (const [key, { at }] of frames) {
+    if (now - at >= FRAME_TTL_MS) {
+      frames.delete(key);
+    }
+  }
+}
+
 /** Where the window's visible frame starts: its X11 position plus the shadow that GTK 4 draws inside it. */
 function frameOrigin(top: Element): Promise<Rect | null> {
   const b = top.bounds;
@@ -31,6 +39,7 @@ function frameOrigin(top: Element): Promise<Rect | null> {
   const origin = frameExtents(top.pid, top.name ?? '')
     .then((f) => (f ? { x: b.x + f.left, y: b.y + f.top, width: b.width - f.left - f.right, height: b.height - f.top - f.bottom } : null))
     .catch(() => null);
+  pruneFrames(Date.now());
   frames.set(key, { at: Date.now(), origin });
   return origin;
 }
