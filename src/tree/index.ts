@@ -88,7 +88,7 @@ export class Tree {
       await new Promise((r) => setTimeout(r, FIND_POLL_MS));
       found = await find();
     }
-    return found.slice(0, limit).map((h) => this.remember(h));
+    return found.slice(0, Math.min(limit, MAX_HANDLES)).map((h) => this.remember(h));
   }
 
   async focused(): Promise<string | undefined> {

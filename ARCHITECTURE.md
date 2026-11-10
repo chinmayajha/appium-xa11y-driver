@@ -34,7 +34,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `runningPid` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `startedAt`, `runningPid` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. The guard only checks: it never activates a window. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
@@ -49,7 +49,7 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 
 | Call | macOS | Linux (X11) | Windows |
 |---|---|---|---|
-| `launch` | `open -n -a`, then the newest pid of the bundle executable | spawn, detached | spawn, detached; when the process exits with no window (a launcher such as `calc.exe`), the new app that it started |
+| `launch` | `open -n -a`, then the newest pid of the bundle executable; of several copies of a bundle id, the one in an app folder | spawn, detached | spawn, detached; when the process exits with no window (a launcher such as `calc.exe`), the new app whose parent is that process |
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | the pid of the xa11y foreground app |
 | `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | xa11y window activate |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | xa11y wheel lines with `dy` negated (xa11y gap 17) |
@@ -63,6 +63,7 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 | `settleAfterReleaseMs` | 0 | 50: GTK 4 loses a click that comes in the same main-loop turn as the previous release | 0 |
 | `typeTextMovesCaret` | yes | yes | no, so send keys is Raw input (xa11y gap 16) |
 | `terminate` | `SIGTERM` to the process | `SIGTERM` to the process group (the app starts detached), else to the process | `TerminateProcess` (Node `process.kill`) |
+| `startedAt` | `ps -o lstart` | `/proc/<pid>/stat` start ticks | `Win32_Process` creation time (CIM, through PowerShell) |
 
 **GTK 4 on X11.** GTK 4 gives `(0, 0)` as the screen position of every element. Its window-relative extents are correct, but relative to the visible frame of the window, not to the X11 window. GTK 4 draws its shadow inside the X11 window and announces its size in `_GTK_FRAME_EXTENTS`, and the size changes when the window gains or loses focus. So the Linux adapter calculates: element = X11 window position + `_GTK_FRAME_EXTENTS` (left, top) + AT-SPI `GetExtents(WINDOW)`. It reads the extents through its own small AT-SPI and X11 clients (`platforms/linux/`), with no `xprop` or `xdotool`. It finds the X11 window by pid and title. When no window or more than one window matches, the element has no bounds. On Wayland there is no global position, so GTK 4 elements have no bounds. GTK 4.14 (Ubuntu 24.04) gives its windows the role `generic`, with no position and no activate action, so xa11y finds no window ([docs/xa11y-gaps.md](docs/xa11y-gaps.md)). The conformance suite, Docker and CI use Debian 13 (GTK 4.18). `src/platforms/linux/{atspi,dbus,x11,replies}.ts` exist only to correct GTK 4 bounds. Delete them when an xa11y release gives screen positions for GTK 4 elements that include `_GTK_FRAME_EXTENTS` (see [docs/xa11y-gaps.md](docs/xa11y-gaps.md), Linux item 1).
 

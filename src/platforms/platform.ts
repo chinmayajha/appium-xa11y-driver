@@ -55,6 +55,8 @@ export interface Platform {
   readonly typeTextMovesCaret: boolean;
   /** Ask the process, and on Linux its process group, to quit. */
   terminate(pid: number): void;
+  /** When the process started, or undefined when it does not run or the OS cannot tell; it tells a process from a later one with the same pid. */
+  startedAt(pid: number): Promise<string | undefined>;
   /** The pid of a running instance of the app, matched the way launch() reads appId. */
   runningPid(appId: string): Promise<number | undefined>;
 }

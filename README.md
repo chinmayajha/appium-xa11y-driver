@@ -93,7 +93,7 @@ Bounds, screenshots and pointer actions use one space: the Desktop coordinates o
 
 The driver uses an Accessibility action first. Send keys to an editable element sets the text through the accessibility API, and a click on a button uses its press action. Then the app can stay behind other windows. On Windows, send keys is Raw input (see Known gaps).
 
-Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press action are Raw input. A special key in send keys, for example Backspace, is Raw input too, and the text after it is also Raw input, so that all of it arrives in order. The OS sends Raw input to the frontmost app. So the driver sends Raw input only when the Session app is frontmost. It checks before each event and does not bring the app to the front. If a different app is in front, for example a system alert, the command fails with `invalid element state` and sends nothing. To bring the Session app to the front, use `activateApp` or `xa11y: focusWindow`.
+Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press action are Raw input. A special key in send keys, for example Backspace, is Raw input too, and the text after it is also Raw input, so that all of it arrives in order. The OS sends Raw input to the frontmost app. So the driver sends Raw input only when the Session app is frontmost. It checks before each event and does not bring the app to the front. If a different app is in front, for example a system alert, the command fails with `invalid element state` and sends nothing. To bring the Session app to the front, use `activateApp` or `xa11y: focusWindow`. Send keys does not hold a modifier key: for a key combination, use `xa11y: chord`. Send keys with the W3C NULL key (U+E000) fails with `invalid argument`.
 
 On macOS the driver sends wheel actions as continuous pixel scroll events, the same events that a trackpad sends. Tools that invert the mouse wheel change only line events, so a positive `deltaY` scrolls down on all Macs. On Linux the driver changes wheel deltas to scroll lines of 20 px.
 
@@ -150,7 +150,7 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 ## Known gaps
 
 - Windows: proven only on Windows Server 2022, with Notepad and the classic Calculator. Not run on Windows 10 or 11, where `calc.exe` starts a different Calculator app.
-- Windows: send keys is Raw input, so the app must be frontmost. xa11y types through UI Automation at the caret, but it does not move the caret ([docs/xa11y-gaps.md](docs/xa11y-gaps.md), Windows item 16).
+- Windows: send keys is Raw input. The driver focuses the element first, and on Windows a focus also brings its window to the front. xa11y types through UI Automation at the caret, but it does not move the caret ([docs/xa11y-gaps.md](docs/xa11y-gaps.md), Windows item 16).
 - Windows: the xa11y binary needs the Microsoft Visual C++ 2015–2022 runtime. A clean Windows Server does not have it.
 - Linux: only X11. On Wayland, GTK 4 elements have no bounds.
 - Linux: GTK 4 apps are proven on GTK 4.18 (Debian 13). On GTK 4.14 (Ubuntu 24.04), GTK 4 apps have no window and their elements have no bounds, so window commands, pointer actions and element screenshots fail. GTK 3 apps work on Ubuntu 24.04. Docker and CI use Debian 13.

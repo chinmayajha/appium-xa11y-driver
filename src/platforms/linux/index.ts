@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
-import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp, tap } from '../common';
+import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp, startedAt, tap } from '../common';
 import { NO_FRAME, type Frame, type Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -64,7 +64,8 @@ async function elementRect(el: Element, topLevel?: Element): Promise<Rect | null
   }
   const gtk4 = await isGtk4(String(el.raw.bus_name));
   if (gtk4 === undefined) {
-    return null;
+    // When the toolkit check fails, only GTK 4's (0, 0) screen position is known to be wrong.
+    return b.x === 0 && b.y === 0 ? null : b;
   }
   return gtk4 ? gtk4Rect(el, topLevel) : b;
 }
@@ -108,6 +109,7 @@ export const linux: Platform = {
   settleAfterReleaseMs: 50,
   typeTextMovesCaret: true,
   terminate: quitGroup,
+  startedAt,
   runningPid: (appId) => pidByName(appId)
     .catch(() => (appId.includes('/') ? pidByName(path.basename(appId)) : undefined))
     .catch(() => undefined),

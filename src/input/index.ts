@@ -96,7 +96,8 @@ export class Input {
   }
 
   async perform(actions: ActionSequence[]): Promise<void> {
-    await this.guard(true);
+    // A call that only releases keys or buttons must go through (ADR 0002), so the first press checks afresh instead.
+    this.checkedAt = 0;
     await perform(this.context(), actions);
   }
 

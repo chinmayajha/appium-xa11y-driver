@@ -1,7 +1,7 @@
 import { App, type Element } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import type { Platform } from './platforms';
-import { mainWindow, startedAt } from './platforms/common';
+import { mainWindow } from './platforms/common';
 
 const WINDOW_WAIT_MS = 5000;
 
@@ -35,7 +35,7 @@ export class Target {
 
   async launch(app: string, args: string[] = []): Promise<App> {
     const pid = await this.platform.launch(app, args, this.timeoutMs);
-    this.launched.push({ pid, appId: app, started: await startedAt(pid) });
+    this.launched.push({ pid, appId: app, started: await this.platform.startedAt(pid) });
     this.current = await App.byPid(pid, { timeout: this.timeoutMs });
     await this.waitForWindow(Math.min(this.timeoutMs, WINDOW_WAIT_MS));
     await this.platform.activate(this.current).catch(() => undefined);
@@ -176,7 +176,7 @@ export class Target {
 
   /** The launched processes that still run; a process with no known start time counts as running. */
   private async live(): Promise<Launched[]> {
-    const same = await Promise.all(this.launched.map(async (l) => !l.started || (await startedAt(l.pid)) === l.started));
+    const same = await Promise.all(this.launched.map(async (l) => !l.started || (await this.platform.startedAt(l.pid)) === l.started));
     return this.launched.filter((_, i) => same[i]);
   }
 }

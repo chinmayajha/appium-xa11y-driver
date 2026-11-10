@@ -4,7 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, keyUps, quit, rawString } from './common';
+import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
 import { clearFlags, postPixelScroll, runningPids } from './mac-events';
 import { NO_FRAME, type Platform } from './platform';
 
@@ -30,6 +30,9 @@ async function scanAppDirs(bundleId: string): Promise<string | undefined> {
   return undefined;
 }
 
+// mdfind gives no order, and a build folder can hold a second copy of an installed app.
+const installedFirst = (hits: string[]) => hits.find((h) => APP_DIRS.includes(path.dirname(h))) ?? hits[0];
+
 const isBundlePath = (app: string) => app.endsWith('.app') && existsSync(app);
 
 async function bundlePath(app: string): Promise<string> {
@@ -37,7 +40,7 @@ async function bundlePath(app: string): Promise<string> {
     return realpathSync(app);
   }
   const query = `kMDItemCFBundleIdentifier == "${app.replace(/"/g, '')}"`;
-  const indexed = (await out('mdfind', [query]).catch(() => '')).split('\n').find(Boolean);
+  const indexed = installedFirst((await out('mdfind', [query]).catch(() => '')).split('\n').filter(Boolean));
   const found = indexed ?? await scanAppDirs(app);
   if (!found) {
     throw new errors.InvalidArgumentError(`No app bundle found for '${app}'. Pass an .app path or a bundle id.`);
@@ -116,6 +119,7 @@ export const mac: Platform = {
   settleAfterReleaseMs: 0,
   typeTextMovesCaret: true,
   terminate: quit,
+  startedAt,
   async runningPid(appId) {
     const bundle = isBundlePath(appId) ? realpathSync(appId) : undefined;
     const id = bundle ? await bundleIdOf(bundle) : appId;

@@ -59,15 +59,20 @@ const NAMES: Record<string, string> = {
 
 export const MODIFIERS = new Set(['Shift', 'Ctrl', 'Alt', 'Meta']);
 
+const NULL_KEY = '\ue000';
+
 function isW3cCode(value: string): boolean {
   const code = value.length === 1 ? value.charCodeAt(0) : 0;
-  return code > 0xe000 && code <= 0xe05d;
+  return code >= 0xe000 && code <= 0xe05d;
 }
 
 export function w3cKey(value: string): string {
   const key = W3C_KEYS[value];
   if (key) {
     return key;
+  }
+  if (value === NULL_KEY) {
+    throw new errors.InvalidArgumentError('Send keys does not hold modifier keys, so the W3C NULL key (U+E000) has no meaning. Send the chord with xa11y: chord');
   }
   if (isW3cCode(value)) {
     throw new errors.InvalidArgumentError(`The W3C key U+${value.charCodeAt(0).toString(16).toUpperCase()} has no desktop key`);
