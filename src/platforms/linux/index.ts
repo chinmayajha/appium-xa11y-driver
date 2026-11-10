@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp } from '../common';
 import type { Platform } from '../platform';
@@ -8,6 +9,8 @@ const NO_POSITION = -2147483648;
 // The shadow changes when the window gains or loses focus, so one read serves only one burst of lookups.
 const FRAME_TTL_MS = 500;
 const frames = new Map<string, { at: number; origin: Promise<Rect | null> }>();
+
+const pidByName = (name: string) => App.byName(name, { timeout: 0 }).then((app) => app.pid ?? undefined);
 
 async function topLevelOf(el: Element): Promise<Element> {
   let node = el;
@@ -92,4 +95,7 @@ export const linux: Platform = {
   // GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
   settleAfterReleaseMs: 50,
   terminate: quitGroup,
+  runningPid: (appId) => pidByName(appId)
+    .catch(() => (appId.includes('/') ? pidByName(path.basename(appId)) : undefined))
+    .catch(() => undefined),
 };

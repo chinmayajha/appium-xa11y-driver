@@ -43,6 +43,12 @@ async function bundlePath(app: string): Promise<string> {
   return found;
 }
 
+async function bundleOf(app: string): Promise<{ bundle: string; executable: string }> {
+  const bundle = await bundlePath(app);
+  const exe = await out('plutil', ['-extract', 'CFBundleExecutable', 'raw', `${bundle}/Contents/Info.plist`]);
+  return { bundle, executable: `${bundle}/Contents/MacOS/${exe}` };
+}
+
 async function pidsOf(executable: string): Promise<Set<number>> {
   const pattern = executable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const { stdout } = await run('pgrep', ['-f', pattern]).catch(() => ({ stdout: '' }));
@@ -71,9 +77,7 @@ export const mac: Platform = {
   permissionHint: 'Grant Accessibility and Screen & System Audio Recording to the process that runs Appium: the Node.js of the service '
     + '(hosts/mac/setup.sh prints its path), or the terminal app when you run host.sh run in a terminal.',
   async launch(app, args, timeoutMs) {
-    const bundle = await bundlePath(app);
-    const exe = await out('plutil', ['-extract', 'CFBundleExecutable', 'raw', `${bundle}/Contents/Info.plist`]);
-    const executable = `${bundle}/Contents/MacOS/${exe}`;
+    const { bundle, executable } = await bundleOf(app);
     const before = await pidsOf(executable);
     await run('open', ['-n', '-a', bundle, ...(args.length ? ['--args', ...args] : [])]);
     return newestPid(executable, before, timeoutMs);
@@ -100,4 +104,9 @@ export const mac: Platform = {
   scrollTypes: new Set(['AXScrollArea']),
   settleAfterReleaseMs: 0,
   terminate: quit,
+  async runningPid(appId) {
+    const found = await bundleOf(appId).catch(() => undefined);
+    const pids = found ? [...await pidsOf(found.executable)] : [];
+    return pids.length ? Math.max(...pids) : undefined;
+  },
 };

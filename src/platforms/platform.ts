@@ -39,6 +39,8 @@ export interface Platform {
   readonly settleAfterReleaseMs: number;
   /** Ask the process, and on Linux its process group, to quit. */
   terminate(pid: number): void;
+  /** The pid of a running instance of the app, matched the way launch() reads appId. */
+  runningPid(appId: string): Promise<number | undefined>;
 }
 
 export function notSupportedYet(os: string, call: string): Error {

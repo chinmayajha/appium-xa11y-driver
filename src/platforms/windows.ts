@@ -26,6 +26,7 @@ export const windows: Platform = {
   platformRole: (el) => rawString(el, 'uia_control_type'),
   scrollTypes: new Set(['ScrollViewer']),
   settleAfterReleaseMs: 0,
+  runningPid: async () => undefined,
   terminate: () => {
     throw notSupportedYet('windows', 'terminate');
   },
