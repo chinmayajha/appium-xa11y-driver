@@ -359,6 +359,10 @@ while [ $# -gt 0 ]; do
     *) usage >&2; exit 2 ;;
   esac
 done
+# host.env keeps DRIVER for later runs from any folder, so a local path must be absolute.
+if [ -d "$DRIVER" ]; then
+  DRIVER=$(cd "$DRIVER" && pwd)
+fi
 if [ "$COMMAND" = run ]; then
   run
 else
