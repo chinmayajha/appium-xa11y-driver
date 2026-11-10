@@ -10,6 +10,29 @@ export function rawString(el: Element, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+const gone = (e: unknown) => (e as NodeJS.ErrnoException).code === 'ESRCH';
+
+export function quit(pid: number): void {
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch (e) {
+    if (!gone(e)) {
+      throw e;
+    }
+  }
+}
+
+export function quitGroup(pid: number): void {
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch (e) {
+    if (!gone(e)) {
+      throw e;
+    }
+    quit(pid);
+  }
+}
+
 export function spawnApp(app: string, args: string[]): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(app, args, { detached: true, stdio: 'ignore' });

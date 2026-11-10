@@ -1,5 +1,5 @@
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
-import { activateWindow, keyUps, lineWheel, rawString, spawnApp } from '../common';
+import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp } from '../common';
 import type { Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -91,4 +91,5 @@ export const linux: Platform = {
   scrollTypes: new Set(['scroll pane']),
   // GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
   settleAfterReleaseMs: 50,
+  terminate: quitGroup,
 };

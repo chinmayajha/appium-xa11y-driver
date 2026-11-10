@@ -71,7 +71,7 @@ export class Target {
     const had = this.launched.length > 0;
     for (const pid of this.launched) {
       try {
-        process.kill(pid, 'SIGTERM');
+        this.platform.terminate(pid);
       } catch {
         continue;
       }
