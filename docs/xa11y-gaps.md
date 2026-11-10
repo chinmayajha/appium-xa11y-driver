@@ -8,7 +8,7 @@ The driver has a workaround for each item. The section [Not xa11y](#not-xa11y) l
 
 ### 1. GTK 4 bounds: the upstream fix does not add the window shadow
 
-**Status on `main`:** open. Fix: [xa11y #677](https://github.com/xa11y/xa11y/pull/677). On Xfce, the focused and the unfocused window gave the same `_GTK_FRAME_EXTENTS`.
+**Status on `main`:** fixed ([xa11y #677](https://github.com/xa11y/xa11y/pull/677), merged, not released). On Xfce, the focused and the unfocused window gave the same `_GTK_FRAME_EXTENTS`.
 
 xa11y #487 (closed, not released) adds the X11 position of the client window to the window-relative extents of GTK 4. But GTK 4 draws its shadow inside the X11 window, and the window-relative extents start at the visible frame. So the fix gives positions that are too far up and to the left, by the size of the shadow. The shadow size is in `_GTK_FRAME_EXTENTS`. It changes when the window gains or loses focus.
 
@@ -97,6 +97,10 @@ Repro on Xfce (Debian 13), in one Node process: start mousepad, read its tree, t
 
 A new process works with 0.15.4 too. Workaround: restart the process.
 
+### 21. Reads through the `App` of an exited process give a platform error
+
+**Status on `main`:** open. Fix: [xa11y #691](https://github.com/xa11y/xa11y/pull/691). After the app process exits, `app.locator(...).count()` and `app.windows()` fail with `Platform: GetChildren failed: ... ServiceUnknown`, not `ElementStale` with `ProcessExited`. A caller cannot tell it from a broken bus. Seen on Debian 13 with a GTK 3 app that was killed.
+
 ## macOS
 
 ### 8. An app with no window is its own child
@@ -131,9 +135,13 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 ### 12. `typeText` in one call loses keys in Calculator
 
-**Status on `main`:** open. The cause is 20 characters in one key event, not the pace. Fix: [xa11y #676](https://github.com/xa11y/xa11y/pull/676).
+**Status on `main`:** fixed ([xa11y #676](https://github.com/xa11y/xa11y/pull/676), merged, not released). The cause was 20 characters in one key event, not the pace.
 
 `input.typeText('7*6=')` gives only "7". Keys sent one at a time, 150 ms apart, give "42". xa11y does not pace the keys.
+
+### 20. Keys after a function key get the Fn flag
+
+**Status on `main`:** open. Fix: [xa11y #687](https://github.com/xa11y/xa11y/pull/687). After `press("Home")` or `press("F5")`, the session state keeps Fn, and the next keys copy it: `typeText("ab")` arrived as nothing, 20 of 20 times. The driver clears the flags after each function key.
 
 ### 13. A second process cannot take a screenshot
 
@@ -147,6 +155,8 @@ Seen on Windows Server 2022 (build 20348), in the console session. The status on
 
 ### 16. Element `typeText` does not move the caret
 
+**Status:** open. With 0.15.4, "ab" then "c" gives `cab` in Notepad 5 of 5 times, and `abc` in mousepad on Linux 5 of 5 times. `SetValue` leaves the caret at 0. Issue: [xa11y #689](https://github.com/xa11y/xa11y/issues/689).
+
 ```js
 const app = await xa11y.App.byPid(notepadPid);
 const edit = async () => (await (await app.windows())[0].children()).find((k) => k.role === 'web_area');
@@ -159,9 +169,13 @@ Seen: `cab`, and the Notepad status bar stays at `Ln 1, Col 1`. Expected: `abc`,
 
 ### 17. The wheel scrolls up for a positive `dy`
 
+**Status:** open. With 0.15.4 and a 400-line file, `dy=+3` moves mousepad toward the end (0, 176, 352) and Notepad toward the top; `dy=-3` moves Notepad toward the end. The macOS code sends `dy` as Quartz `wheel1`, where positive is up. Issue: [xa11y #688](https://github.com/xa11y/xa11y/issues/688).
+
 The docs say: "`dy` positive → content scrolls down". On Linux a positive `dy` scrolls the view down. On Windows, `inputSim().scroll(at, 0, 30)` over Notepad, at the end of 200 lines, moves the value of the vertical scroll bar from 100 to 46. The driver negates `dy` on Windows.
 
 ### 18. `stableId` is the window handle of a Win32 control
+
+**Status:** by design (the docs say: the handle, valid for the life of the window). Notepad's edit control gave `hwnd:0x2801d0`, then `hwnd:0x280196`, with AutomationId `15` both times. Added to the Linux question: [xa11y #684](https://github.com/xa11y/xa11y/issues/684#issuecomment-6777690477).
 
 ```js
 const app = await xa11y.App.byName('win32calc');
@@ -170,6 +184,10 @@ console.log(seven.stableId, seven.raw.automation_id);
 ```
 
 Seen: `hwnd:0x4013c 137`. The handle changes each time the app starts, and the AutomationId stays the same. Expected: the AutomationId, as for elements with no handle (for example `TitleBar`). The driver uses `raw.automation_id` as the Stable id.
+
+### 19. Notepad's text area has the role `web_area`
+
+**Status:** open. The multi-line Win32 `Edit` has the UIA Document control type, and xa11y maps every Document to `web_area`. On macOS and Linux a plain text editor is `text_area`. Issue: [xa11y #690](https://github.com/xa11y/xa11y/issues/690). The driver marks a `web_area` with `set_value` as editable.
 
 ## Node bindings
 
