@@ -97,7 +97,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   async findElOrEls(strategy: string, selector: string, mult: true, context?: string): Promise<any[]>;
   async findElOrEls(strategy: string, selector: string, mult: false, context?: string): Promise<any>;
   async findElOrEls(strategy: string, selector: string, mult: boolean, context?: string): Promise<any> {
-    const ids = await this.s.tree.find(strategy, selector, context, this.implicitWaitMs);
+    const ids = await this.s.tree.find(strategy, selector, context, this.implicitWaitMs, mult ? Infinity : 1);
     if (mult) {
       return ids.map((id) => util.wrapElement(id));
     }

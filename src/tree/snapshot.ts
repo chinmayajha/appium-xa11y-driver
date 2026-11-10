@@ -87,6 +87,7 @@ function topFor(parent: Node, child: Element): Element | undefined {
 }
 
 const MAX_DEPTH = 256;
+export const UNPLACED: Placement = { rect: null, id: '' };
 const MAX_CONCURRENT = 16;
 
 type Limit = <T>(task: () => Promise<T>) => Promise<T>;
@@ -115,6 +116,7 @@ function limiter(max: number): Limit {
 }
 
 interface Walk {
+  root: Node;
   doc: XmlDocument;
   nodes: Map<XmlElement, Node>;
   place: Place;
@@ -122,13 +124,19 @@ interface Walk {
   names: RoleNames;
 }
 
+// An element can leave the tree between its parent's children() call and its own calls; it then counts as a leaf.
+function read<T>(walk: Walk, node: Node, task: () => Promise<T>, gone: T): Promise<T> {
+  const result = walk.limit(task);
+  return node === walk.root ? result : result.catch(() => gone);
+}
+
 // macOS gives an app with no window itself as its only child, which would make the walk endless.
 async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
-  for (const [k, v] of Object.entries(attributesOf(node.el, await walk.limit(() => walk.place(node)), walk.names))) {
+  for (const [k, v] of Object.entries(attributesOf(node.el, await read(walk, node, () => walk.place(node), UNPLACED), walk.names))) {
     xml.setAttribute(k, v.replace(XML_INVALID, '').replace(LONE_SURROGATE, ''));
   }
   walk.nodes.set(xml, node);
-  const children = node.path.length >= MAX_DEPTH ? [] : await walk.limit(() => node.el.children());
+  const children = node.path.length >= MAX_DEPTH ? [] : await read(walk, node, () => node.el.children(), []);
   const kids = children
     .map((el, i) => ({ el, path: [...node.path, i], top: topFor(node, el) }))
     .filter((kid) => kid.el.role !== 'application');
@@ -139,7 +147,7 @@ async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
 export async function snapshot(root: Node, place: Place, names: RoleNames): Promise<Snapshot> {
   const doc = new DOMImplementation().createDocument(null, tagFor(root.el.role), null);
   const nodes = new Map<XmlElement, Node>();
-  await fill({ doc, nodes, place, limit: limiter(MAX_CONCURRENT), names }, doc.documentElement as XmlElement, root);
+  await fill({ root, doc, nodes, place, limit: limiter(MAX_CONCURRENT), names }, doc.documentElement as XmlElement, root);
   return { doc, nodes };
 }
 

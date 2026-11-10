@@ -12,26 +12,31 @@ function quoteXpath(s: string): string {
   return `concat('${s.split("'").join(`', "'", '`)}')`;
 }
 
-export function toXpath(strategy: string, selector: string): string {
+/** The XPath forms of a locator, in order of preference: the first form that matches wins. */
+export function toXpaths(strategy: string, selector: string): string[] {
   const v = quoteXpath(selector);
   switch (strategy) {
-    case 'xpath': return selector;
-    case 'accessibility id': return `//*[@id=${v} or @name=${v}]`;
-    case 'id': return `//*[@id=${v}]`;
-    case 'name': return `//*[@name=${v}]`;
-    case 'class name': return `//${selector}`;
+    case 'xpath': return [selector];
+    case 'accessibility id': return [`//*[@id=${v}]`, `//*[@name=${v}]`];
+    case 'id': return [`//*[@id=${v}]`];
+    case 'name': return [`//*[@name=${v}]`];
+    case 'class name': return [`//${selector}`];
     default: throw new errors.InvalidSelectorError(`Unsupported locator strategy '${strategy}'`);
   }
 }
 
-export function select(snap: Snapshot, expr: string): Node[] {
+/** The elements that the XPath selects below the snapshot root; a context element is not a match of its own find. */
+export function select(snap: Snapshot, expr: string, context: boolean): Node[] {
+  const root = snap.doc.documentElement as XmlElement;
   let matches: unknown;
   try {
-    matches = xpath.select(expr, snap.doc as unknown as globalThis.Node);
+    matches = xpath.select(expr, (context ? root : snap.doc) as unknown as globalThis.Node);
   } catch (e) {
     throw new errors.InvalidSelectorError(`Invalid xpath '${expr}': ${(e as Error).message}`);
   }
-  return (Array.isArray(matches) ? matches : [])
-    .map((n) => snap.nodes.get(n as XmlElement))
-    .filter((n): n is Node => Boolean(n));
+  const nodes = Array.isArray(matches) ? matches.map((n) => snap.nodes.get(n as XmlElement)) : [undefined];
+  if (nodes.some((n) => !n)) {
+    throw new errors.InvalidSelectorError(`The xpath '${expr}' selects something that is not an element`);
+  }
+  return (nodes as Node[]).filter((n) => !context || n !== snap.nodes.get(root));
 }

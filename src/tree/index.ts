@@ -4,8 +4,8 @@ import { errors } from 'appium/driver';
 import { asWebDriverError } from '../errors';
 import type { Platform, Point } from '../platforms';
 import type { Target } from '../target';
-import { select, toXpath } from './find';
-import { attributesOf, snapshot, toXml, type Node, type Path, type Placement } from './snapshot';
+import { select, toXpaths } from './find';
+import { attributesOf, snapshot, toXml, UNPLACED, type Node, type Path, type Placement } from './snapshot';
 
 export { LOCATOR_STRATEGIES } from './find';
 
@@ -28,7 +28,6 @@ interface Resolved {
 
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
 const PLACED_ATTRIBUTES = new Set(['x', 'y', 'width', 'height', 'visible', 'id']);
-const UNPLACED: Placement = { rect: null, id: '' };
 const FIND_POLL_MS = 300;
 const MAX_HANDLES = 5000;
 
@@ -71,21 +70,22 @@ export class Tree {
     return toXml(await snapshot({ el: this.target.app.asElement(), path: [] }, this.place, this.platform));
   }
 
-  async find(strategy: string, selector: string, context: string | undefined, waitMs: number): Promise<string[]> {
+  /** Finds the elements and returns at most `limit` handles, so a single-element find keeps no handles it does not return. */
+  async find(strategy: string, selector: string, context: string | undefined, waitMs: number, limit: number): Promise<string[]> {
     const find = strategy === '-xa11y selector'
       ? () => this.bySelector(selector, context)
-      : () => this.byXpath(toXpath(strategy, selector), context);
+      : () => this.byXpath(toXpaths(strategy, selector), context);
     const deadline = Date.now() + waitMs;
     let found = await find();
     while (!found.length && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, FIND_POLL_MS));
       found = await find();
     }
-    return found.map((h) => this.remember(h));
+    return found.slice(0, limit).map((h) => this.remember(h));
   }
 
   async focused(): Promise<string | undefined> {
-    const node = (await this.byXpath("//*[@focused='true']")).pop();
+    const node = (await this.byXpath(["//*[@focused='true']"])).pop();
     return node && this.remember(node);
   }
 
@@ -158,6 +158,8 @@ export class Tree {
     if (!h) {
       throw new errors.NoSuchElementError(`Unknown element id '${id}'`);
     }
+    this.handles.delete(id);
+    this.handles.set(id, h);
     return h;
   }
 
@@ -242,9 +244,15 @@ export class Tree {
     return { el, path: h.path, top: h.path.length === 1 ? undefined : top };
   }
 
-  private async byXpath(expr: string, context?: string): Promise<Found[]> {
+  private async byXpath(exprs: string[], context?: string): Promise<Found[]> {
     const snap = await snapshot(await this.rootNode(context), this.place, this.platform);
-    return select(snap, expr).map((n) => ({ el: n.el, path: n.path }));
+    for (const expr of exprs) {
+      const nodes = select(snap, expr, Boolean(context));
+      if (nodes.length) {
+        return nodes.map((n) => ({ el: n.el, path: n.path }));
+      }
+    }
+    return [];
   }
 
   private async bySelector(selector: string, context?: string): Promise<Found[]> {
