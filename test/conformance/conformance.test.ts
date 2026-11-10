@@ -64,7 +64,7 @@ describe('editor', () => {
         assert.equal(el.getAttribute('visible'), 'false', `<${el.tagName}> has no bounds but is visible`);
       }
     }
-    assert.ok(all.some((el) => el.tagName === fx.editor.field.replace(/^\/\//, '')));
+    assert.ok(all.some((el) => fx.editor.roles.includes(el.tagName)));
   });
 
   test('sets and reads text', async () => {
@@ -76,7 +76,7 @@ describe('editor', () => {
     await s.click(field);
     assert.equal(await s.attribute(field, 'editable'), 'true');
     const focused = await s.active();
-    assert.equal(await s.call<string>('GET', `/element/${focused}/name`), fx.editor.field.replace(/^\/\//, ''));
+    assert.ok(fx.editor.roles.includes(await s.call<string>('GET', `/element/${focused}/name`)));
   });
 
   test('types special keys', async () => {
@@ -88,7 +88,9 @@ describe('editor', () => {
   test('a handle does not move to a different element when the tree changes', { skip: !fx.editor.siblingBefore && 'no fixture inserts a sibling' }, async () => {
     const toggle = { keys: fx.editor.siblingBefore };
     await s.clear(field);
+    const before = await s.source();
     await s.execute('xa11y: chord', toggle);
+    await eventually(() => s.source(), (src) => src !== before);
     const outcome = await s.type(field, 'x').then(() => 'typed', (e: { code?: string }) => e.code);
     await s.execute('xa11y: chord', toggle);
     field = await s.find('xpath', fx.editor.field);
@@ -118,7 +120,8 @@ describe('editor', () => {
       { type: 'scroll', x: 0, y: 0, deltaX: 0, deltaY, origin: { [ELEMENT]: field } },
     ] }]);
     const [bar] = await s.findAll('xpath', '//scroll_bar[@height > @width]');
-    const view = bar ? () => s.attribute(bar, 'value') : async () => (await s.screenshot(field)).toString('base64');
+    assert.ok(bar, 'the editor has no vertical scroll bar to read the scroll position from');
+    const view = () => s.attribute(bar, 'value');
     const settled = async (check: (v: unknown) => boolean) => {
       let last = await view();
       let since = Date.now();
@@ -136,9 +139,7 @@ describe('editor', () => {
     const down = await settled((v) => v !== top);
     await wheel(-600);
     const up = await settled((v) => v !== down);
-    if (bar) {
-      assert.ok(Number(top) < Number(down) && Number(up) < Number(down), `scroll bar went ${top} → ${down} → ${up}`);
-    }
+    assert.ok(Number(top) < Number(down) && Number(up) < Number(down), `scroll bar went ${top} → ${down} → ${up}`);
   });
 
   test('releasing actions lets go of a held Shift', async () => {
@@ -152,13 +153,19 @@ describe('editor', () => {
   test('the Frontmost guard refuses raw input while another app is in front', async () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
-    await s.execute('xa11y: launch', { app: fx.calculator.app });
+    const calculator = await s.execute<{ pid: number }>('xa11y: launch', { app: fx.calculator.app });
     await s.execute('xa11y: switchApp', { pid: editor.pid });
     field = await s.find('xpath', fx.editor.field);
-    await rejectsWith(s.actions(keyboard(keys('z'))), 'invalid element state');
-    await rejectsWith(s.execute('xa11y: chord', { keys: 'primary+a' }), 'invalid element state');
+    await rejectsWith(s.actions(keyboard(keys('7', '7', '7'))), 'invalid element state');
+    await rejectsWith(s.execute('xa11y: chord', { keys: '7' }), 'invalid element state');
+    await rejectsWith(s.execute('xa11y: typeText', { text: '777' }), 'invalid element state');
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(await text(), '');
+    await s.execute('xa11y: switchApp', { pid: calculator.pid });
+    assert.doesNotMatch(await s.source(), /"7777?"/, 'a refused key reached the Calculator');
+    await s.terminateApp(fx.calculator.app);
+    await s.execute('xa11y: switchApp', { pid: editor.pid });
+    field = await s.find('xpath', fx.editor.field);
     await s.execute('xa11y: focusWindow');
     await eventually(async () => s.actions(keyboard(keys('o', 'k'))).then(() => true, () => false), Boolean);
     await eventually(text, (v) => v === 'ok');
@@ -168,7 +175,7 @@ describe('editor', () => {
 describe('calculator', () => {
   let s: Session;
   const button = (k: keyof typeof fx.calculator.buttons) => s.find('xpath', fx.calculator.buttons[k]);
-  const shows = (n: string) => eventually(() => s.source(), (src) => src.includes(`"${n}"`));
+  const shows = (n: string) => eventually(() => s.source(), (src) => new RegExp(`\\b(name|value|label)="${n}"`).test(src));
 
   before(async () => {
     s = await open(fx.calculator.app);
@@ -186,8 +193,9 @@ describe('calculator', () => {
     assert.equal(role, 'button');
     assert.ok((await s.findAll('class name', 'button')).length >= 10);
     const name = (await s.attribute(seven, 'name'))!;
-    assert.ok(await s.find('name', name));
-    assert.ok(await s.find('accessibility id', fx.calculator.stableId?.id ?? name));
+    assert.deepEqual(await s.rect(await s.find('name', name)), await s.rect(seven));
+    assert.deepEqual(await s.rect(await s.find('accessibility id', fx.calculator.stableId?.id ?? name)), await s.rect(seven));
+    assert.equal(await s.property(seven, 'name'), name);
     assert.deepEqual(await s.rect(await s.find('-xa11y selector', `button[name="${name}"]`)), await s.rect(seven));
     assert.equal(await s.attribute(seven, 'no-such-attribute'), null);
     if (fx.calculator.stableId) {
@@ -206,6 +214,8 @@ describe('calculator', () => {
     const win = await s.find('xpath', '//window');
     const inside = await s.find('xpath', fx.calculator.buttons['7'].replace(/^\/\//, './/'), win);
     assert.deepEqual(await s.rect(inside), await s.rect(await button('7')));
+    assert.ok((await s.findAll('class name', 'button', win)).length >= 10);
+    assert.deepEqual(await s.findAll('xpath', 'self::window', win), []);
   });
 
   test('an invalid xpath is an invalid selector', async () => {
@@ -249,6 +259,10 @@ describe('calculator', () => {
   });
 
   test('pointer clicks land on the element rect in Desktop coordinates', async () => {
+    for (const k of ['C', '7', '5'] as const) {
+      await s.click(await button(k));
+    }
+    await shows('75');
     const plus = center(await s.rect(await button('+')));
     const five = await button('5');
     const from = center(await s.rect(five));
@@ -259,7 +273,7 @@ describe('calculator', () => {
       { type: 'pointerMove', duration: 0, x: 0, y: 0, origin: { [ELEMENT]: five } }, ...click,
       { type: 'pointerMove', duration: 0, x: to.x - from.x, y: to.y - from.y, origin: 'pointer' }, ...click,
     ] }]);
-    await shows('17');
+    await shows('80');
     await rejectsWith(pointerClick(s, { x: -100000, y: -100000 }), 'move target out of bounds');
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerMove', x: 0, y: 0, origin: 'sideways' }] }]), 'invalid argument');
   });
@@ -316,18 +330,61 @@ describe('app lifecycle', () => {
     assert.equal(await s.terminateApp('no.such.app'), false);
     assert.ok(await s.find('xpath', fx.calculator.buttons['7']));
   });
+
+  test('terminateApp stops a running app and gives true', async () => {
+    const calculator = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
+    const editor = await s.execute<{ pid: number }>('xa11y: launch', { app: fx.editor.app });
+    await s.execute('xa11y: switchApp', { pid: calculator.pid });
+    assert.equal(await s.terminateApp(fx.editor.app), true);
+    const running = async () => (await s.execute<Array<{ pid: number }>>('xa11y: listApps')).some((a) => a.pid === editor.pid);
+    await eventually(running, (v) => !v, 5000);
+  });
+
+  test('named window calls find the window by name', async () => {
+    const [win] = await s.execute<Array<{ name: string }>>('xa11y: listWindows');
+    await s.execute('xa11y: focusWindow', { name: win.name });
+    await rejectsWith(s.execute('xa11y: focusWindow', { name: 'no such window' }), 'no such window');
+    await rejectsWith(s.execute('xa11y: closeWindow', { name: 'no such window' }), 'no such window');
+  });
+});
+
+describe('app arguments', { skip: !fx.calculator.arguments && 'no fixture app shows its arguments' }, () => {
+  test('the app starts with its arguments', async () => {
+    const s = await open(fx.calculator.app, { 'appium:appArguments': fx.calculator.arguments!.args });
+    try {
+      const shown = fx.calculator.arguments!.shows;
+      await eventually(() => s.source(), (src) => new RegExp(`\\b(name|value|label)="${shown.replace(/[+]/g, '\\+')}"`).test(src));
+    } finally {
+      await s.delete();
+    }
+  });
 });
 
 describe('session clean-up', () => {
+  const attach = (name: string) => Session.create(URL, { platformName: fx.platformName, 'appium:automationName': 'Xa11y', 'appium:appName': name, 'appium:launchTimeout': 500 });
+
+  test('a session with terminateOnDelete false leaves its app running for an appName attach', async () => {
+    const s = await open(fx.calculator.app, { 'appium:terminateOnDelete': false });
+    const app = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    await s.delete();
+    const again = await attach(app.name);
+    try {
+      assert.equal((await again.execute<{ pid: number }>('xa11y: activeAppInfo')).pid, app.pid);
+      assert.equal(await again.terminateApp(fx.calculator.app), true);
+    } finally {
+      await again.delete();
+    }
+  });
+
   test('deleting the session ends the app it launched', async () => {
     const s = await open(fx.calculator.app);
     const app = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    await (await attach(app.name)).delete();
     await s.delete();
-    const attach = () => Session.create(URL, { platformName: fx.platformName, 'appium:automationName': 'Xa11y', 'appium:appName': app.name, 'appium:launchTimeout': 500 });
     const deadline = Date.now() + 5000;
     let ended = false;
     while (!ended && Date.now() < deadline) {
-      ended = await attach().then(async (again) => {
+      ended = await attach(app.name).then(async (again) => {
         await again.delete();
         return false;
       }, (e: Error) => /session not created/.test(e.message));

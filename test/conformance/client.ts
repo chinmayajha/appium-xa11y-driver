@@ -33,8 +33,9 @@ export class Session {
     return (await this.call<Record<string, string>>('POST', path, { using, value }))[ELEMENT];
   }
 
-  async findAll(using: string, value: string): Promise<string[]> {
-    return (await this.call<Array<Record<string, string>>>('POST', '/elements', { using, value })).map((e) => e[ELEMENT]);
+  async findAll(using: string, value: string, from?: string): Promise<string[]> {
+    const path = from ? `/element/${from}/elements` : '/elements';
+    return (await this.call<Array<Record<string, string>>>('POST', path, { using, value })).map((e) => e[ELEMENT]);
   }
 
   click(el: string): Promise<unknown> {
@@ -55,6 +56,10 @@ export class Session {
 
   attribute(el: string, name: string): Promise<string | null> {
     return this.call('GET', `/element/${el}/attribute/${name}`);
+  }
+
+  property(el: string, name: string): Promise<unknown> {
+    return this.call('GET', `/element/${el}/property/${name}`);
   }
 
   selected(el: string): Promise<boolean> {
