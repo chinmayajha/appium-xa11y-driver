@@ -45,7 +45,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     try {
       return await super.executeCommand<T>(cmd, ...args);
     } catch (e) {
-      throw asWebDriverError(e, this.session?.platform.permissionHint);
+      throw asWebDriverError(e, { hint: this.session?.platform.permissionHint });
     } finally {
       this.log.info(`${cmd} took ${Math.round(performance.now() - started)} ms`);
     }
@@ -69,7 +69,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     } catch (e) {
       const hint = this.session?.platform.permissionHint;
       await this.deleteSession();
-      const err = asWebDriverError(e, hint);
+      const err = asWebDriverError(e, { hint, creating: true });
       throw err instanceof errors.SessionNotCreatedError ? err : new errors.SessionNotCreatedError((err as Error).message);
     }
     return result;

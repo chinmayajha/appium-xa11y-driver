@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Element, Locator, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
+import { asWebDriverError } from '../errors';
 import type { Platform, Point } from '../platforms';
 import type { Target } from '../target';
 import { select, toXpath } from './find';
@@ -159,7 +160,8 @@ export class Tree {
   private async resolve(id: string): Promise<Resolved> {
     const h = this.handle(id);
     const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.walk(h.path ?? [])).catch((e) => {
-      throw 'w3cStatus' in e ? e : new errors.StaleElementReferenceError(`The element is no longer in the tree: ${e.message}`);
+      const err = asWebDriverError(e);
+      throw err instanceof errors.NoSuchElementError ? new errors.StaleElementReferenceError(`The element is no longer in the tree: ${err.message}`) : err;
     });
     if (found.el.role !== h.el.role) {
       throw new errors.StaleElementReferenceError(`Element changed from ${h.el.role} to ${found.el.role}`);
