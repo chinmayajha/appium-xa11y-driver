@@ -27,6 +27,8 @@ interface Resolved {
 }
 
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
+const PLACED_ATTRIBUTES = new Set(['x', 'y', 'width', 'height', 'visible', 'id']);
+const UNPLACED: Placement = { rect: null, id: '' };
 const FIND_POLL_MS = 300;
 const MAX_HANDLES = 5000;
 
@@ -128,7 +130,7 @@ export class Tree {
     if (name === 'text') {
       return el.value || el.name || el.description || '';
     }
-    const attrs = await this.attributes(el, top);
+    const attrs = PLACED_ATTRIBUTES.has(name) ? await this.attributes(el, top) : attributesOf(el, UNPLACED, this.platform);
     return attrs[name] ?? rawAttribute(el, name);
   }
 
