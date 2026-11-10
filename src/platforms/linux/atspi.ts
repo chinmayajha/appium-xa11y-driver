@@ -12,7 +12,11 @@ async function atspiAddress(): Promise<string> {
     return process.env.AT_SPI_BUS_ADDRESS;
   }
   const session = await Bus.connect(process.env.DBUS_SESSION_BUS_ADDRESS ?? '');
-  return (await session.call('org.a11y.Bus', '/org/a11y/bus', 'org.a11y.Bus', 'GetAddress')).str();
+  try {
+    return (await session.call('org.a11y.Bus', '/org/a11y/bus', 'org.a11y.Bus', 'GetAddress')).str();
+  } finally {
+    session.close();
+  }
 }
 
 const atspi = shared(() => atspiAddress().then(Bus.connect));

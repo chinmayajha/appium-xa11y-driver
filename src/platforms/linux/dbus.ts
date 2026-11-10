@@ -139,6 +139,25 @@ function message(serial: number, dest: string, path: string, iface: string, memb
   return Buffer.concat([w.buffer(), body.buffer()]);
 }
 
+function authenticate(socket: net.Socket): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    socket.once('error', reject);
+    socket.once('connect', () => {
+      const uid = Buffer.from(String(process.getuid?.() ?? 0)).toString('hex');
+      socket.write(`\0AUTH EXTERNAL ${uid}\r\n`);
+    });
+    socket.once('data', (d) => {
+      if (!d.toString().startsWith('OK')) {
+        reject(new Error(`D-Bus authentication failed: ${d.toString().trim()}`));
+        return;
+      }
+      socket.off('error', reject);
+      socket.write('BEGIN\r\n');
+      resolve();
+    });
+  });
+}
+
 /** A minimal D-Bus connection: method calls with u and s arguments, pipelined on one socket. */
 export class Bus {
   private serial = 0;
@@ -158,25 +177,19 @@ export class Bus {
   static async connect(address: string): Promise<Bus> {
     const socket = net.createConnection(socketPath(address));
     socket.unref();
-    await new Promise<void>((resolve, reject) => {
-      socket.once('error', reject);
-      socket.once('connect', () => {
-        const uid = Buffer.from(String(process.getuid?.() ?? 0)).toString('hex');
-        socket.write(`\0AUTH EXTERNAL ${uid}\r\n`);
-      });
-      socket.once('data', (d) => {
-        if (!d.toString().startsWith('OK')) {
-          reject(new Error(`D-Bus authentication failed: ${d.toString().trim()}`));
-          return;
-        }
-        socket.off('error', reject);
-        socket.write('BEGIN\r\n');
-        resolve();
-      });
-    });
-    const bus = new Bus(socket);
-    await bus.call('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'Hello');
-    return bus;
+    const timer = setTimeout(() => socket.destroy(new Error('The D-Bus handshake timed out')), CALL_TIMEOUT_MS);
+    try {
+      await authenticate(socket);
+      const bus = new Bus(socket);
+      await bus.call('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'Hello');
+      return bus;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  close(): void {
+    this.socket.end();
   }
 
   call(dest: string, path: string, iface: string, member: string, args: Arg[] = []): Promise<Reader> {
