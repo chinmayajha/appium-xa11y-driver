@@ -1,5 +1,5 @@
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
-import { activateWindow, keyUps, lineWheel, spawnApp } from '../common';
+import { activateWindow, keyUps, lineWheel, rawString, spawnApp } from '../common';
 import type { Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -87,4 +87,6 @@ export const linux: Platform = {
   // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
   stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),
   identity: (el) => `${String(el.raw.bus_name ?? '')}${String(el.raw.object_path ?? '')}`,
+  platformRole: (el) => rawString(el, 'atspi_role'),
+  scrollTypes: new Set(['scroll pane']),
 };

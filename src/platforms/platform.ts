@@ -31,6 +31,10 @@ export interface Platform {
   stableId(el: Element): string;
   /** A key that names one element for the life of the app process, or an empty string when there is none. */
   identity(el: Element): string;
+  /** The OS role name of the element, for the Page source `type` attribute. */
+  platformRole(el: Element): string;
+  /** OS role names of scroll containers. */
+  readonly scrollTypes: ReadonlySet<string>;
 }
 
 export function notSupportedYet(os: string, call: string): Error {

@@ -70,7 +70,7 @@ export class Tree {
   });
 
   async source(): Promise<string> {
-    return toXml(await snapshot({ el: this.target.app.asElement(), path: [] }, this.place));
+    return toXml(await snapshot({ el: this.target.app.asElement(), path: [] }, this.place, this.platform));
   }
 
   async find(strategy: string, selector: string, context: string | undefined, waitMs: number): Promise<string[]> {
@@ -132,7 +132,7 @@ export class Tree {
     if (name === 'text') {
       return el.value || el.name || el.description || '';
     }
-    const attrs = attributesOf(el, await this.place({ el, path: [], top }));
+    const attrs = attributesOf(el, await this.place({ el, path: [], top }), this.platform);
     return attrs[name] ?? rawAttribute(el, name);
   }
 
@@ -207,7 +207,7 @@ export class Tree {
   }
 
   private async byXpath(expr: string, context?: string): Promise<Found[]> {
-    const snap = await snapshot(await this.rootNode(context), this.place);
+    const snap = await snapshot(await this.rootNode(context), this.place, this.platform);
     return select(snap, expr).map((n) => ({ el: n.el, path: n.path }));
   }
 

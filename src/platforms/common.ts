@@ -5,6 +5,11 @@ import type { Point } from './platform';
 
 const WHEEL_PIXELS_PER_LINE = 20;
 
+export function rawString(el: Element, key: string): string {
+  const value = el.raw[key];
+  return typeof value === 'string' ? value : '';
+}
+
 export function spawnApp(app: string, args: string[]): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(app, args, { detached: true, stdio: 'ignore' });

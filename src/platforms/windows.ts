@@ -1,4 +1,4 @@
-import { spawnApp } from './common';
+import { rawString, spawnApp } from './common';
 import { notSupportedYet, type Platform } from './platform';
 
 const unproven = (call: string) => async (): Promise<never> => {
@@ -23,4 +23,6 @@ export const windows: Platform = {
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
   identity: (el) => el.stableId ?? '',
+  platformRole: (el) => rawString(el, 'uia_control_type'),
+  scrollTypes: new Set(['ScrollViewer']),
 };

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, keyUps } from './common';
+import { activateWindow, keyUps, rawString } from './common';
 import { postPixelScroll, waitForModifierRelease } from './mac-events';
 import type { Platform } from './platform';
 
@@ -96,4 +96,6 @@ export const mac: Platform = {
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
   identity: (el) => el.stableId ?? '',
+  platformRole: (el) => rawString(el, 'ax_role'),
+  scrollTypes: new Set(['AXScrollArea']),
 };

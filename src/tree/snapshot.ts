@@ -1,6 +1,7 @@
 import { DOMImplementation, XMLSerializer } from '@xmldom/xmldom';
 import type { Element as XmlElement, Document as XmlDocument } from '@xmldom/xmldom';
 import type { Element, Rect } from '@crowecawcaw/xa11y';
+import type { Platform } from '../platforms';
 
 export type Path = number[];
 
@@ -32,33 +33,23 @@ const CLICK_ROLES = new Set([
 const CHECK_ROLES = new Set(['check_box', 'radio_button', 'switch']);
 const EDIT_ROLES = new Set(['text_field', 'text_area', 'combo_box']);
 const SCROLL_ROLES = new Set(['list', 'table', 'web_area', 'text_area']);
-const PLATFORM_ROLE_KEYS = ['ax_role', 'uia_control_type', 'atspi_role'];
-const PLATFORM_SCROLL_ROLES = new Set(['AXScrollArea', 'ScrollViewer', 'scroll pane']);
 const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
-function platformRole(el: Element): string {
-  const raw = el.raw;
-  for (const key of PLATFORM_ROLE_KEYS) {
-    if (typeof raw[key] === 'string') {
-      return raw[key] as string;
-    }
-  }
-  return '';
-}
+export type RoleNames = Pick<Platform, 'platformRole' | 'scrollTypes'>;
 
-function isScrollable(el: Element, role: string, type: string): boolean {
-  return SCROLL_ROLES.has(role) || PLATFORM_SCROLL_ROLES.has(type)
+function isScrollable(el: Element, role: string, type: string, scrollTypes: ReadonlySet<string>): boolean {
+  return SCROLL_ROLES.has(role) || scrollTypes.has(type)
     || el.actions.some((a) => a.startsWith('scroll_') && a !== 'scroll_into_view');
 }
 
-function actionFlags(el: Element, role: string, type: string): Record<string, string> {
+function actionFlags(el: Element, role: string, type: string, scrollTypes: ReadonlySet<string>): Record<string, string> {
   const actions = el.actions;
   return {
     clickable: String(CLICK_ROLES.has(role) || actions.some((a) => CLICK_ACTIONS.has(a))),
     checkable: String(CHECK_ROLES.has(role) || el.checked !== null || actions.includes('toggle')),
     editable: String(el.editable || EDIT_ROLES.has(role)),
-    scrollable: String(isScrollable(el, role, type)),
+    scrollable: String(isScrollable(el, role, type, scrollTypes)),
   };
 }
 
@@ -66,8 +57,8 @@ function boundsOf(rect: Rect | null): Record<string, string> {
   return rect ? Object.fromEntries((['x', 'y', 'width', 'height'] as const).map((k) => [k, String(Math.round(rect[k]))])) : {};
 }
 
-export function attributesOf(el: Element, { rect, id }: Placement): Record<string, string> {
-  const type = platformRole(el);
+export function attributesOf(el: Element, { rect, id }: Placement, names: RoleNames): Record<string, string> {
+  const type = names.platformRole(el);
   return {
     type,
     name: el.name ?? '',
@@ -79,7 +70,7 @@ export function attributesOf(el: Element, { rect, id }: Placement): Record<strin
     focused: String(el.focused),
     selected: String(el.selected),
     checked: String(el.checked === 'on'),
-    ...actionFlags(el, el.role, type),
+    ...actionFlags(el, el.role, type, names.scrollTypes),
     ...boundsOf(rect),
   };
 }
@@ -128,11 +119,12 @@ interface Walk {
   nodes: Map<XmlElement, Node>;
   place: Place;
   limit: Limit;
+  names: RoleNames;
 }
 
 // macOS gives an app with no window itself as its only child, which would make the walk endless.
 async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
-  for (const [k, v] of Object.entries(attributesOf(node.el, await walk.limit(() => walk.place(node))))) {
+  for (const [k, v] of Object.entries(attributesOf(node.el, await walk.limit(() => walk.place(node)), walk.names))) {
     xml.setAttribute(k, v.replace(XML_INVALID, '').replace(LONE_SURROGATE, ''));
   }
   walk.nodes.set(xml, node);
@@ -144,10 +136,10 @@ async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
   await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid)));
 }
 
-export async function snapshot(root: Node, place: Place): Promise<Snapshot> {
+export async function snapshot(root: Node, place: Place, names: RoleNames): Promise<Snapshot> {
   const doc = new DOMImplementation().createDocument(null, tagFor(root.el.role), null);
   const nodes = new Map<XmlElement, Node>();
-  await fill({ doc, nodes, place, limit: limiter(MAX_CONCURRENT) }, doc.documentElement as XmlElement, root);
+  await fill({ doc, nodes, place, limit: limiter(MAX_CONCURRENT), names }, doc.documentElement as XmlElement, root);
   return { doc, nodes };
 }
 
