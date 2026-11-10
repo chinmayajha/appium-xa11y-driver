@@ -1,0 +1,9 @@
+# No gate on app launch
+
+A Client that can connect to the Appium port can start any program on the Host with any arguments. There are three paths: the `appium:app` capability with `appium:appArguments` at session start, the `xa11y: launch` method, and `activateApp` when no instance of the app runs. The `appium:failureArtifacts` capability also makes the driver create a folder at any path and write `.xml` and `.png` files into it.
+
+The driver has no Appium insecure feature for these paths. The protection is the address of the port: Appium listens on `127.0.0.1`, and a remote Client connects through an SSH tunnel or a port-forward command. [SECURITY.md](../../SECURITY.md) gives these rules.
+
+A gate does not make the port safe to open. Without launch, a Client can still send Raw input into any window of the Desktop session, for example a terminal. A Host that cannot start the Session app has no use, so the setup scripts would turn the feature on by default, and the gate would protect nothing. A gate is also a breaking change for each Host setup and each Client, because the main Client sends `appium:app` on each session.
+
+Two options were not chosen. The first is a gate on launch and on the artifact folder: two features, for example `launch_app` and `failure_artifacts`, each checked with `assertFeatureEnabled` at the four places. The second is a gate on `appium:appArguments` only, because a program path alone can still start a shell or a script. In Appium 3, the server turns on a feature with `--allow-insecure <automation name>:<feature>`, for example `--allow-insecure xa11y:launch_app`. The automation name is not case-sensitive, and `*` applies the feature to all drivers. `--relaxed-security` turns on all features. A command that needs a feature that is not on fails with `Potentially insecure feature '<name>' has not been enabled`.

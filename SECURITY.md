@@ -7,6 +7,7 @@ Appium and this driver give full control of the Desktop session. A Client can st
 - Bind Appium to `127.0.0.1`. This is the default of the setup scripts.
 - To reach a remote Host, use an SSH tunnel or a port-forward command of your cloud tool. Do not open the port to a network.
 - The Docker image listens on all interfaces inside the container. Publish its port only on the loopback address: `-p 127.0.0.1:4723:4723`.
+- The driver has no Appium insecure feature for app launch: see [docs/adr/0009-no-gate-on-app-launch.md](docs/adr/0009-no-gate-on-app-launch.md).
 
 ## Report a vulnerability
 
