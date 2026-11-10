@@ -53,8 +53,8 @@ The seam has real adapters for macOS and Linux and a Windows adapter that report
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | not yet |
 | `activate` | xa11y window activate | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | not yet |
-| `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, clear the Fn and keypad flags | xa11y key tap | xa11y key tap |
-| `releaseKeys` | wait until the event source reports the modifiers up; clear the Fn and keypad flags as `pressKey` does | xa11y key up | not yet |
+| `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, post a flags change without Fn and keypad | xa11y key tap | xa11y key tap |
+| `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | not yet |
 | `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |
 | `stableId` | AX identifier | none (xa11y gives the AT-SPI object path, which changes each time the app starts) | AutomationId |
 | `identity` | AX identifier; when it is empty, the handle checks the name | D-Bus name and AT-SPI object path. They are the same while the app runs. | AutomationId |
