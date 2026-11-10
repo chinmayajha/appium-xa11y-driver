@@ -103,12 +103,17 @@ jobs:
           for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "Appium did not start" >&2
           exit 1
+      - run: screencapture -x debug-mac1-before.png || true
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os mac
+      - if: always()
+        run: screencapture -x debug-mac1-after.png || true
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: appium-log-macos
-          path: appium.log
+          path: |
+            appium.log
+            debug-mac1-*.png
           if-no-files-found: ignore
 
   windows:

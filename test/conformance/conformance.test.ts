@@ -45,6 +45,22 @@ describe('editor', () => {
     await s.clear(field);
   });
 
+  test('[DEBUG-mac1] frontmost state around raw input', { skip: fx.platformName !== 'Mac' }, async () => {
+    const state = async (when: string) => {
+      const front = (await s.execute<Array<{ name: string; foreground: boolean }>>('xa11y: listApps')).filter((a) => a.foreground);
+      const windows = await s.execute('xa11y: listWindows').catch((e) => String(e));
+      console.log(`# [DEBUG-mac1] ${when}: session ${JSON.stringify(await s.execute('xa11y: activeAppInfo'))} foreground ${JSON.stringify(front)} windows ${JSON.stringify(windows)}`);
+    };
+    await state('after launch');
+    await s.click(field);
+    await state('after click');
+    await s.actions(keyboard(keys('x')));
+    await new Promise((r) => setTimeout(r, 1000));
+    console.log(`# [DEBUG-mac1] text after raw x: ${JSON.stringify(await text())}`);
+    await state('after raw key');
+    await s.clear(field);
+  });
+
   after(async () => {
     await s.clear(field).catch(() => undefined);
     await s.delete();
