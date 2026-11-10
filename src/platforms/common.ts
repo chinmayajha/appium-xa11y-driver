@@ -1,4 +1,6 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import type { App, Element, InputSim } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import type { Point } from './platform';
@@ -31,6 +33,17 @@ export function quitGroup(pid: number): void {
     }
     quit(pid);
   }
+}
+
+/** When the process started, or undefined when it does not run or the OS cannot tell. */
+export async function startedAt(pid: number): Promise<string | undefined> {
+  // procps derives lstart from a boot time that moves when the clock is set, so Linux reads the start ticks instead.
+  const stat = await readFile(`/proc/${pid}/stat`, 'utf8').catch(() => undefined);
+  if (stat !== undefined) {
+    return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+  }
+  const { stdout } = await promisify(execFile)('ps', ['-o', 'lstart=', '-p', String(pid)]).catch(() => ({ stdout: '' }));
+  return stdout.trim() || undefined;
 }
 
 export function spawnApp(app: string, args: string[]): Promise<number> {

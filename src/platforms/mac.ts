@@ -1,12 +1,12 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString } from './common';
-import { clearFlags, postPixelScroll } from './mac-events';
-import type { Platform } from './platform';
+import { clearFlags, postPixelScroll, runningPids } from './mac-events';
+import { NO_FRAME, type Platform } from './platform';
 
 const run = promisify(execFile);
 const APP_DIRS = ['/Applications', '/System/Applications', '/System/Applications/Utilities', `${process.env.HOME}/Applications`];
@@ -30,9 +30,11 @@ async function scanAppDirs(bundleId: string): Promise<string | undefined> {
   return undefined;
 }
 
+const isBundlePath = (app: string) => app.endsWith('.app') && existsSync(app);
+
 async function bundlePath(app: string): Promise<string> {
-  if (app.endsWith('.app') && existsSync(app)) {
-    return path.resolve(app);
+  if (isBundlePath(app)) {
+    return realpathSync(app);
   }
   const query = `kMDItemCFBundleIdentifier == "${app.replace(/"/g, '')}"`;
   const indexed = (await out('mdfind', [query]).catch(() => '')).split('\n').find(Boolean);
@@ -43,28 +45,24 @@ async function bundlePath(app: string): Promise<string> {
   return found;
 }
 
-async function bundleOf(app: string): Promise<{ bundle: string; executable: string }> {
-  const bundle = await bundlePath(app);
-  const exe = await out('plutil', ['-extract', 'CFBundleExecutable', 'raw', `${bundle}/Contents/Info.plist`]);
-  return { bundle, executable: `${bundle}/Contents/MacOS/${exe}` };
+async function requiredBundleId(bundle: string): Promise<string> {
+  const id = await bundleIdOf(bundle);
+  if (!id) {
+    throw new errors.InvalidArgumentError(`'${bundle}' has no CFBundleIdentifier`);
+  }
+  return id;
 }
 
-async function pidsOf(executable: string): Promise<Set<number>> {
-  const pattern = executable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const { stdout } = await run('pgrep', ['-f', pattern]).catch(() => ({ stdout: '' }));
-  return new Set(stdout.split('\n').map(Number).filter(Boolean));
-}
-
-async function newestPid(executable: string, before: Set<number>, timeoutMs: number): Promise<number> {
+async function newestPid(bundleId: string, bundle: string, before: Set<number>, timeoutMs: number): Promise<number> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const pids = [...await pidsOf(executable)].filter((p) => !before.has(p));
+    const pids = [...await runningPids(bundleId, bundle)].filter((p) => !before.has(p));
     if (pids.length) {
       return Math.max(...pids);
     }
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new errors.SessionNotCreatedError(`'${executable}' did not start within ${timeoutMs} ms`);
+  throw new errors.SessionNotCreatedError(`'${bundle}' did not start within ${timeoutMs} ms`);
 }
 
 async function frontmost(): Promise<App | undefined> {
@@ -77,10 +75,11 @@ export const mac: Platform = {
   permissionHint: 'Grant Accessibility and Screen & System Audio Recording to the process that runs Appium: the Node.js of the service '
     + '(hosts/mac/setup.sh prints its path), or the terminal app when you run host.sh run in a terminal.',
   async launch(app, args, timeoutMs) {
-    const { bundle, executable } = await bundleOf(app);
-    const before = await pidsOf(executable);
+    const bundle = await bundlePath(app);
+    const id = await requiredBundleId(bundle);
+    const before = await runningPids(id, bundle);
     await run('open', ['-n', '-a', bundle, ...(args.length ? ['--args', ...args] : [])]);
-    return newestPid(executable, before, timeoutMs);
+    return newestPid(id, bundle, before, timeoutMs);
   },
   async isFrontmost(app) {
     return (await frontmost())?.pid === app.pid;
@@ -108,6 +107,7 @@ export const mac: Platform = {
     await keyUps(input, keys);
     await clearFlags(keys);
   },
+  windowShadow: async () => NO_FRAME,
   elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
   identity: (el) => el.stableId ?? '',
@@ -116,8 +116,9 @@ export const mac: Platform = {
   settleAfterReleaseMs: 0,
   terminate: quit,
   async runningPid(appId) {
-    const found = await bundleOf(appId).catch(() => undefined);
-    const pids = found ? [...await pidsOf(found.executable)] : [];
+    const bundle = isBundlePath(appId) ? realpathSync(appId) : undefined;
+    const id = bundle ? await bundleIdOf(bundle) : appId;
+    const pids = id ? [...await runningPids(id, bundle)] : [];
     return pids.length ? Math.max(...pids) : undefined;
   },
 };

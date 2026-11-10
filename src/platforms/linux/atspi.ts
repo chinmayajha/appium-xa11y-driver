@@ -5,7 +5,7 @@ import { shared } from './replies';
 const COORD_WINDOW = 1;
 const ROOT_PATH = '/org/a11y/atspi/accessible/root';
 
-const gtk4Apps = new Map<string, Promise<boolean>>();
+const gtk4Apps = new Map<string, Promise<boolean | undefined>>();
 
 async function atspiAddress(): Promise<string> {
   if (process.env.AT_SPI_BUS_ADDRESS) {
@@ -31,8 +31,8 @@ async function property(dest: string, iface: string, name: string): Promise<stri
   return variantString(reply);
 }
 
-/** Whether the element's app uses GTK 4, which reports no screen positions on X11. */
-export function isGtk4(busName: string): Promise<boolean> {
+/** Whether the element's app uses GTK 4, which reports no screen positions on X11; undefined when the app does not answer. */
+export function isGtk4(busName: string): Promise<boolean | undefined> {
   let known = gtk4Apps.get(busName);
   if (!known) {
     known = Promise.all([
@@ -40,7 +40,7 @@ export function isGtk4(busName: string): Promise<boolean> {
       property(busName, 'org.a11y.atspi.Application', 'Version'),
     ]).then(([name, version]) => name === 'GTK' && version.startsWith('4.'), () => {
       gtk4Apps.delete(busName);
-      return false;
+      return undefined;
     });
     gtk4Apps.set(busName, known);
   }

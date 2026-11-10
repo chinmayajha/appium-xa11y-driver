@@ -40,11 +40,12 @@ appium driver install --source=npm appium-xa11y-driver
 |---|---|
 | `platformName` | `Mac`, `Linux` or `Windows` |
 | `appium:automationName` | `Xa11y` |
-| `appium:app` | The app to start: an `.app` path or a bundle id on macOS, an executable on Linux and Windows. The session attaches to the new process. |
+| `appium:app` | The app to start: an `.app` path or a bundle id on macOS, an executable on Linux. Not supported yet on Windows. The session attaches to the new process. |
 | `appium:appArguments` | Arguments for `appium:app` |
 | `appium:appName` | Attach to a running app by its name. If you do not give `app` or `appName`, the session attaches to the frontmost app. |
 | `appium:launchTimeout` | Milliseconds to wait for the app. The default is 20000. |
 | `appium:terminateOnDelete` | Stop the apps that the session started when the session ends. The default is `true`. |
+| `appium:failureArtifacts` | A folder on the Host. When a command fails, the driver saves the Page source and a screenshot there and writes their paths to the log. |
 
 ## Commands
 
@@ -148,7 +149,7 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 
 ## Known gaps
 
-- Windows: the adapter is not proven on a real Host. The Frontmost check, activation, the wheel and key release are not supported yet.
+- Windows: the adapter is not proven on a real Host. App launch (`appium:app`, `xa11y: launch`), `activateApp`, `terminateApp`, the Frontmost check, activation, the wheel and key release are not supported yet. Attach with `appium:appName`.
 - Linux: only X11. On Wayland, GTK 4 elements have no bounds.
 - Linux: GTK 4 apps are proven on GTK 4.18 (Debian 13). On GTK 4.14 (Ubuntu 24.04), GTK 4 apps have no window and their elements have no bounds, so window commands, pointer actions and element screenshots fail. GTK 3 apps work on Ubuntu 24.04. Docker and CI use Debian 13.
 - Linux: elements have no Stable id.

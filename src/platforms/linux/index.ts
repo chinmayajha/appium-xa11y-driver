@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { activateWindow, keyUps, lineWheel, quitGroup, rawString, spawnApp, tap } from '../common';
-import type { Platform } from '../platform';
+import { NO_FRAME, type Frame, type Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
 
@@ -62,7 +62,18 @@ async function elementRect(el: Element, topLevel?: Element): Promise<Rect | null
   if (!b || b.x === NO_POSITION || b.y === NO_POSITION) {
     return null;
   }
-  return (await isGtk4(String(el.raw.bus_name))) ? gtk4Rect(el, topLevel) : b;
+  const gtk4 = await isGtk4(String(el.raw.bus_name));
+  if (gtk4 === undefined) {
+    return null;
+  }
+  return gtk4 ? gtk4Rect(el, topLevel) : b;
+}
+
+async function windowShadow(win: Element): Promise<Frame> {
+  if (!(await isGtk4(String(win.raw.bus_name))) || win.pid === null) {
+    return NO_FRAME;
+  }
+  return (await frameExtents(win.pid, win.name ?? '').catch(() => undefined)) ?? NO_FRAME;
 }
 
 async function hasActiveWindow(app: App): Promise<boolean> {
@@ -87,6 +98,7 @@ export const linux: Platform = {
   wheel: lineWheel,
   pressKey: tap,
   releaseKeys: keyUps,
+  windowShadow,
   elementRect,
   // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
   stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),

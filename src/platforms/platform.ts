@@ -6,6 +6,16 @@ export interface Point {
   y: number;
 }
 
+/** Margins in points around a rect. */
+export interface Frame {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export const NO_FRAME: Frame = { left: 0, right: 0, top: 0, bottom: 0 };
+
 /** What differs between operating systems and xa11y does not cover. */
 export interface Platform {
   readonly os: string;
@@ -27,6 +37,8 @@ export interface Platform {
   pressKey(input: InputSim, key: string): Promise<void>;
   /** Release keys and return when the next synthetic key can no longer carry them. */
   releaseKeys(input: InputSim, keys: string[]): Promise<void>;
+  /** What the window's move and resize geometry adds around the visible frame that elementRect gives. */
+  windowShadow(win: Element): Promise<Frame>;
   /** Bounds in Desktop coordinates, or null when the toolkit gives none that can be trusted. */
   elementRect(el: Element, topLevel?: Element): Promise<Rect | null>;
   /** The Stable id, or an empty string when the app gives none. */

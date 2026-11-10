@@ -47,6 +47,26 @@ const KEY_FLAGS: Record<string, number> = {
     ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`)].map((k) => [k, FUNCTION_FLAGS])),
 };
 
+const RUNNING_PIDS = `ObjC.import('AppKit');
+function run(argv) {
+  const [id, bundle] = argv;
+  const apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier(id);
+  const pids = [];
+  for (let i = 0; i < apps.count; i++) {
+    const app = apps.objectAtIndex(i);
+    if (!bundle || app.bundleURL.path.js === bundle) {
+      pids.push(app.processIdentifier);
+    }
+  }
+  return pids.join(' ');
+}`;
+
+/** The pids of the running instances of a bundle id, of every copy or only of the copy at `bundle`. */
+export async function runningPids(bundleId: string, bundle?: string): Promise<Set<number>> {
+  const { stdout } = await jxa(RUNNING_PIDS, bundle ? [bundleId, bundle] : [bundleId]);
+  return new Set(stdout.trim().split(' ').map(Number).filter(Boolean));
+}
+
 /** Post a W3C wheel delta in pixels: positive dx goes right, positive dy goes down. */
 export async function postPixelScroll(at: { x: number; y: number }, dx: number, dy: number): Promise<void> {
   await jxa(POST_PIXEL_SCROLL, [at.x, at.y, Math.round(dx), Math.round(dy)]);

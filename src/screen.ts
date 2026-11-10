@@ -30,9 +30,10 @@ export class Screen {
     if (!part || part.width < 1 || part.height < 1) {
       throw new errors.InvalidElementStateError('The element is not on the screen');
     }
-    const w = Math.max(1, Math.round(rect.width));
-    const h = Math.max(1, Math.round(rect.height));
-    return sized(full.crop(part), w, h).toPng();
+    const d = this.remember(desktopRect(full));
+    const w = Math.min(rect.x + rect.width, d.x + d.width) - Math.max(rect.x, d.x);
+    const h = Math.min(rect.y + rect.height, d.y + d.height) - Math.max(rect.y, d.y);
+    return sized(full.crop(part), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))).toPng();
   }
 
   async desktop(): Promise<Rect> {

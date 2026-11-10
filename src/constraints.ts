@@ -5,6 +5,7 @@ export const desiredCapConstraints = {
   appArguments: { isArray: true },
   launchTimeout: { isNumber: true },
   terminateOnDelete: { isBoolean: true },
+  failureArtifacts: { isString: true },
 } as const;
 
 export type Xa11yConstraints = typeof desiredCapConstraints;

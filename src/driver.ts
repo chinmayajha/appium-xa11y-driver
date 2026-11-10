@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { BaseDriver, errors } from 'appium/driver';
 import { util } from 'appium/support';
 import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
@@ -45,6 +47,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     try {
       return await super.executeCommand<T>(cmd, ...args);
     } catch (e) {
+      await this.saveFailure(cmd);
       throw asWebDriverError(e, { hint: this.session?.platform.permissionHint });
     } finally {
       this.log.info(`${cmd} took ${Math.round(performance.now() - started)} ms`);
@@ -65,6 +68,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
         await target.launch(this.opts.app, this.opts.appArguments ?? []);
       } else {
         await target.attach({ name: this.opts.appName });
+        await target.activate().catch(() => undefined);
       }
     } catch (e) {
       const hint = this.session?.platform.permissionHint;
@@ -80,11 +84,29 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     if (s) {
       await s.input.release().catch(() => undefined);
       if (this.opts.terminateOnDelete !== false) {
-        s.target.terminateLaunched();
+        await s.target.terminateLaunched().catch((e: Error) => this.log.warn(`The apps of the session did not stop: ${e.message}`));
       }
     }
     this.session = undefined;
     await super.deleteSession(sessionId);
+  }
+
+  /** Saves the Page source and a screenshot of the failed command to the `appium:failureArtifacts` folder. */
+  private async saveFailure(cmd: string): Promise<void> {
+    const dir = this.opts.failureArtifacts;
+    if (!dir || !this.session) {
+      return;
+    }
+    const base = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${cmd}`);
+    try {
+      await mkdir(dir, { recursive: true });
+      const parts = await Promise.allSettled([this.session.tree.source(), this.screen.capture()]);
+      const saved = parts.flatMap((p, i) => (p.status === 'fulfilled' ? [{ file: `${base}.${i ? 'png' : 'xml'}`, data: p.value }] : []));
+      await Promise.all(saved.map(({ file, data }) => writeFile(file, data)));
+      this.log.info(`${cmd} failed; saved ${saved.map((f) => f.file).join(' and ') || 'nothing'}`);
+    } catch (e) {
+      this.log.warn(`${cmd} failed, and its artifacts could not be saved: ${(e as Error).message}`);
+    }
   }
 
   private get s(): Session {

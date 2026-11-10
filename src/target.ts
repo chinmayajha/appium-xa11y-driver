@@ -1,11 +1,18 @@
 import { App, type Element } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import type { Platform } from './platforms';
-import { mainWindow } from './platforms/common';
+import { mainWindow, startedAt } from './platforms/common';
 
 const WINDOW_WAIT_MS = 5000;
 
 const noWindow = (name?: string) => new errors.NoSuchWindowError(name ? `No window named '${name}'` : 'The app has no window');
+
+interface Launched {
+  pid: number;
+  appId: string;
+  /** Tells the launched process from a later process with the same pid. */
+  started?: string;
+}
 
 export interface AppRef {
   name?: string;
@@ -15,7 +22,7 @@ export interface AppRef {
 /** The Session app: which app the session operates, and the processes the session started. */
 export class Target {
   private current?: App;
-  private launched: Array<{ pid: number; appId: string }> = [];
+  private launched: Launched[] = [];
 
   constructor(private platform: Platform, private timeoutMs: number) {}
 
@@ -28,7 +35,7 @@ export class Target {
 
   async launch(app: string, args: string[] = []): Promise<App> {
     const pid = await this.platform.launch(app, args, this.timeoutMs);
-    this.launched.push({ pid, appId: app });
+    this.launched.push({ pid, appId: app, started: await startedAt(pid) });
     this.current = await App.byPid(pid, { timeout: this.timeoutMs });
     await this.waitForWindow(Math.min(this.timeoutMs, WINDOW_WAIT_MS));
     await this.platform.activate(this.current).catch(() => undefined);
@@ -48,9 +55,26 @@ export class Target {
     } else if (ref.name) {
       this.current = await App.byName(ref.name, { timeout: timeoutMs });
     } else {
-      this.current = await App.foreground({ timeout: timeoutMs });
+      this.current = await this.frontmost(timeoutMs);
     }
     return this.current;
+  }
+
+  /** xa11y names the window manager as the foreground app on X11, so the app with the active window wins where one has it. */
+  private async frontmost(timeoutMs: number): Promise<App> {
+    const front = await App.foreground({ timeout: timeoutMs }).catch((e: Error) => e);
+    if (!(front instanceof Error) && await this.platform.isFrontmost(front).catch(() => true)) {
+      return front;
+    }
+    for (const app of await App.list()) {
+      if (await this.platform.isFrontmost(app).catch(() => false)) {
+        return app;
+      }
+    }
+    if (front instanceof Error) {
+      throw front;
+    }
+    return front;
   }
 
   async activate(): Promise<void> {
@@ -76,6 +100,7 @@ export class Target {
 
   /** Stops the instances of this app that the session started or that run now; true when there was one. */
   async terminate(appId: string): Promise<boolean> {
+    this.launched = await this.live();
     const pids = await this.pidsOf(appId);
     for (const pid of pids) {
       this.platform.terminate(pid);
@@ -106,11 +131,17 @@ export class Target {
   /** Moves the main window when x and y are set, and resizes it when width and height are set and differ from its size. */
   async moveWindow(rect: { x: number | null; y: number | null; width: number | null; height: number | null }): Promise<void> {
     const win = await this.window();
+    const s = await this.platform.windowShadow(win);
     if (rect.x != null && rect.y != null) {
-      await win.moveTo(rect.x, rect.y);
+      await win.moveTo(rect.x - s.left, rect.y - s.top);
     }
-    if (rect.width != null && rect.height != null && (rect.width !== win.bounds?.width || rect.height !== win.bounds?.height)) {
-      await win.resizeTo(rect.width, rect.height);
+    if (rect.width == null || rect.height == null) {
+      return;
+    }
+    const width = rect.width + s.left + s.right;
+    const height = rect.height + s.top + s.bottom;
+    if (width !== win.bounds?.width || height !== win.bounds?.height) {
+      await win.resizeTo(width, height);
     }
   }
 
@@ -128,16 +159,27 @@ export class Target {
     return new Set(running === undefined ? pids : [...pids, running]);
   }
 
-  terminateLaunched(): boolean {
-    const had = this.launched.length > 0;
-    for (const { pid } of this.launched) {
+  /** Stops the processes that the session started and that still run; throws the first failure after it tries them all. */
+  async terminateLaunched(): Promise<boolean> {
+    const live = await this.live();
+    this.launched = [];
+    const failures: unknown[] = [];
+    for (const { pid } of live) {
       try {
         this.platform.terminate(pid);
-      } catch {
-        continue;
+      } catch (e) {
+        failures.push(e);
       }
     }
-    this.launched = [];
-    return had;
+    if (failures.length) {
+      throw failures[0];
+    }
+    return live.length > 0;
+  }
+
+  /** The launched processes that still run; a process with no known start time counts as running. */
+  private async live(): Promise<Launched[]> {
+    const same = await Promise.all(this.launched.map(async (l) => !l.started || (await startedAt(l.pid)) === l.started));
+    return this.launched.filter((_, i) => same[i]);
   }
 }

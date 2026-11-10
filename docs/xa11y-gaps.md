@@ -174,4 +174,4 @@ Seen: `InvalidActionDataError undefined`. Expected: `InvalidActionDataError XA11
 - **Unnatural Scroll Wheels** inverts line wheel events. The driver sends pixel scroll events, which it does not change.
 - **TextEdit:** the frame of the text area is the full height of the document. Clicks and element screenshots use the visible part.
 - **macOS screenshots:** two PNG captures of the same pixels can have different bytes. The wheel test reads the scroll bar value.
-- **CI on macOS:** `xa11y/setup-a11y` grants only Accessibility. The workflows also add Screen Recording for the node binary to the TCC database. This is not tested on GitHub yet.
+- **CI on macOS:** `xa11y/setup-a11y` grants only Accessibility. The workflows also add Screen Recording for the node binary to the TCC database. The macOS CI job runs this grant and passes on GitHub. `examples/optics-ci.yml` has not run yet.
