@@ -1,6 +1,8 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
-import { activateWindow, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quitGroup, rawString, spawnApp, startedAt, tap } from '../common';
+import { errors } from 'appium/driver';
+import { activateWindow, groupRuns, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quitGroup, rawString, spawnApp, startedAt, tap } from '../common';
 import { NO_FRAME, type Frame, type Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -10,7 +12,88 @@ const NO_POSITION = -2147483648;
 const FRAME_TTL_MS = 500;
 const frames = new Map<string, { at: number; origin: Promise<Rect | null> }>();
 
+const LAUNCH_POLL_MS = 100;
+
 const pidByName = (name: string) => App.byName(name, { timeout: 0 }).then((app) => app.pid ?? undefined);
+
+const runningPid = (appId: string) => pidByName(appId)
+  .catch(() => (appId.includes('/') ? pidByName(path.basename(appId)) : undefined))
+  .catch(() => undefined);
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function processGroup(pid: number): Promise<number | undefined> {
+  const stat = await readFile(`/proc/${pid}/stat`, 'utf8').catch(() => undefined);
+  return stat === undefined ? undefined : Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]);
+}
+
+/** The apps of a started process and of the processes it started, which keep its process group after it exits. */
+async function appsOf(group: number): Promise<Array<{ pid: number; app: App }>> {
+  const apps: Array<{ pid: number; app: App }> = [];
+  for (const app of await App.list().catch(() => [])) {
+    const { pid } = app;
+    if (pid !== null && (pid === group || await processGroup(pid) === group)) {
+      apps.push({ pid, app });
+    }
+  }
+  return apps;
+}
+
+/** The pid of the app that a started process shows; undefined when its process group ends with no window. */
+async function shownBy(group: number, app: string, deadline: number): Promise<number | undefined> {
+  for (;;) {
+    const apps = await appsOf(group);
+    for (const { pid, app: a } of apps) {
+      if ((await a.windows().catch(() => [])).length) {
+        return pid;
+      }
+    }
+    if (!groupRuns(group)) {
+      return undefined;
+    }
+    if (Date.now() >= deadline) {
+      if (apps[0]) {
+        return apps[0].pid;
+      }
+      quitGroup(group);
+      throw new errors.SessionNotCreatedError(`'${app}' runs, but it has no accessible app`);
+    }
+    await pause(LAUNCH_POLL_MS);
+  }
+}
+
+async function stopped(pid: number, deadline: number): Promise<boolean> {
+  while (await startedAt(pid) !== undefined) {
+    if (Date.now() >= deadline) {
+      return false;
+    }
+    await pause(LAUNCH_POLL_MS);
+  }
+  return true;
+}
+
+/** A single-instance app gives the request to its running instance and exits, so that instance is started again. */
+async function launch(app: string, args: string[], timeoutMs: number): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  const shown = await shownBy(await spawnApp(app, args), app, deadline);
+  if (shown !== undefined) {
+    return shown;
+  }
+  const running = await runningPid(app);
+  if (running === undefined) {
+    throw new errors.SessionNotCreatedError(`'${app}' exited before it showed a window`);
+  }
+  quitGroup(running);
+  if (!(await stopped(running, deadline))) {
+    throw new errors.SessionNotCreatedError(`'${app}' took its start request to pid ${running}, and that instance did not stop`);
+  }
+  const again = await shownBy(await spawnApp(app, args), app, deadline);
+  const instance = again ?? await runningPid(app);
+  if (instance === undefined) {
+    throw new errors.SessionNotCreatedError(`'${app}' exited before it showed a window`);
+  }
+  return instance;
+}
 
 async function topLevelOf(el: Element): Promise<Element> {
   let node = el;
@@ -84,7 +167,7 @@ export const linux: Platform = {
   os: 'linux',
   primaryModifier: 'Ctrl',
   permissionHint: 'Run Appium inside the Desktop session, with its DISPLAY, D-Bus session bus and AT-SPI bus (see hosts/linux/setup.sh).',
-  launch: async (app, args) => spawnApp(app, args),
+  launch,
   isFrontmost: hasActiveWindow,
   async frontmostName() {
     for (const app of await App.list().catch(() => [])) {
@@ -113,7 +196,5 @@ export const linux: Platform = {
   typeTextMovesCaret: true,
   terminate: quitGroup,
   startedAt,
-  runningPid: (appId) => pidByName(appId)
-    .catch(() => (appId.includes('/') ? pidByName(path.basename(appId)) : undefined))
-    .catch(() => undefined),
+  runningPid,
 };

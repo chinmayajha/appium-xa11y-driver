@@ -465,6 +465,43 @@ describe('session clean-up', () => {
     }
     assert.ok(ended, `${app.name} still runs after the session ended`);
   });
+
+  test('a start that hands off to a running instance restarts the app', { skip: process.env.CONFORMANCE_OS !== 'linux' && 'Linux only' }, async () => {
+    const first = await open(fx.editor.app, { 'appium:terminateOnDelete': false });
+    const before = await first.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    await first.delete();
+    const started = Date.now();
+    const s = await open(fx.editor.app);
+    try {
+      assert.ok(Date.now() - started < 10000, `the session took ${Date.now() - started} ms`);
+      const app = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+      assert.notEqual(app.pid, before.pid);
+      await eventually(async () => (await s.execute<Array<{ name: string }>>('xa11y: listApps')).filter((a) => a.name === app.name).length, (n) => n === 1);
+    } finally {
+      await s.delete();
+    }
+    const stopped = () => attach(before.name).then(async (again) => {
+      await again.delete();
+      return false;
+    }, () => true);
+    await eventually(stopped, Boolean, 5000);
+  });
+
+  test('a wrapper that starts the app and exits gives a session on the app', { skip: process.env.CONFORMANCE_OS !== 'linux' && 'Linux only' }, async () => {
+    const s = await open('/bin/sh', { 'appium:appArguments': ['-c', `${fx.calculator.app} &`] });
+    let name: string;
+    try {
+      ({ name } = await s.execute<{ name: string }>('xa11y: activeAppInfo'));
+      assert.ok(await s.find('xpath', fx.calculator.buttons['7']));
+    } finally {
+      await s.delete();
+    }
+    const stopped = () => attach(name).then(async (again) => {
+      await again.delete();
+      return false;
+    }, () => true);
+    await eventually(stopped, Boolean, 5000);
+  });
 });
 
 describe('attach', () => {

@@ -35,6 +35,15 @@ export function quitGroup(pid: number): void {
   }
 }
 
+export function groupRuns(pgid: number): boolean {
+  try {
+    process.kill(-pgid, 0);
+    return true;
+  } catch (e) {
+    return !gone(e);
+  }
+}
+
 /** When the process started, or undefined when it does not run or the OS cannot tell. */
 export async function startedAt(pid: number): Promise<string | undefined> {
   // procps derives lstart from a boot time that moves when the clock is set, so Linux reads the start ticks instead.
