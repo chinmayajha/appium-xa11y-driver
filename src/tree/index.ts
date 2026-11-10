@@ -192,9 +192,13 @@ export class Tree {
     if (this.target.app.pid !== h.pid) {
       throw new errors.StaleElementReferenceError('The element belongs to another app');
     }
-    const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.walk(h.path ?? [])).catch((e) => {
-      const err = asWebDriverError(e);
-      throw err instanceof errors.NoSuchElementError ? new errors.StaleElementReferenceError(`The element is no longer in the tree: ${err.message}`) : err;
+    const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.walk(h.path ?? [])).catch(async (e) => {
+      const err = asWebDriverError(e) as Error;
+      // When the app has exited, the walk fails with a platform error (for example an AT-SPI NoReply), not with not-found.
+      if (err instanceof errors.NoSuchElementError || !(await this.target.alive())) {
+        throw new errors.StaleElementReferenceError(`The element is no longer in the tree: ${err.message}`);
+      }
+      throw err;
     });
     const change = this.changed(h, found.el);
     if (change) {

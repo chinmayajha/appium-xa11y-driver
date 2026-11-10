@@ -57,6 +57,12 @@ export class Target {
     await this.platform.activate(this.app);
   }
 
+  /** Whether the Session app's process still has an accessible app. */
+  async alive(): Promise<boolean> {
+    const { pid } = this.app;
+    return pid !== null && App.byPid(pid, { timeout: 0 }).then(() => true, () => false);
+  }
+
   /** Attaches to a running instance of the app and brings it to the front; launches the app when none runs. */
   async activateOrLaunch(appId: string): Promise<App> {
     const pid = await this.platform.runningPid(appId);
