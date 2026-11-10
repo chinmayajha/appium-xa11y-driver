@@ -27,6 +27,7 @@ export interface InputState {
   pointer: Point;
   buttons: Set<MouseButtonName>;
   keys: Set<string>;
+  releasedAt: number;
 }
 
 export interface ActionContext {
@@ -40,9 +41,18 @@ export interface ActionContext {
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
+// GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
+const AFTER_RELEASE_MS = 50;
 
 export function newInputState(): InputState {
-  return { pointer: { x: 0, y: 0 }, buttons: new Set(), keys: new Set() };
+  return { pointer: { x: 0, y: 0 }, buttons: new Set(), keys: new Set(), releasedAt: 0 };
+}
+
+async function afterRelease(state: InputState): Promise<void> {
+  const wait = state.releasedAt + AFTER_RELEASE_MS - Date.now();
+  if (wait > 0) {
+    await new Promise((r) => setTimeout(r, wait));
+  }
 }
 
 function heldModifiers(state: InputState): string[] {
@@ -90,13 +100,16 @@ const ACTIONS: Record<string, Handler> = {
       throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
     }
     ctx.state.pointer = to;
+    await afterRelease(ctx.state);
     await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
     return false;
   },
   async pointerDown(ctx, a, next) {
     const button = buttonOf(a);
+    await afterRelease(ctx.state);
     if (pairedPointerUp(a, next)) {
       await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
+      ctx.state.releasedAt = Date.now();
       return true;
     }
     ctx.state.buttons.add(button);
@@ -106,6 +119,7 @@ const ACTIONS: Record<string, Handler> = {
   async pointerUp(ctx, a) {
     ctx.state.buttons.delete(buttonOf(a));
     await ctx.input.mouseUp(buttonOf(a));
+    ctx.state.releasedAt = Date.now();
     return false;
   },
   async keyDown(ctx, a, next) {

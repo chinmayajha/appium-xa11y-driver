@@ -7,6 +7,7 @@ import { Replies } from './replies';
 const OP_INTERN_ATOM = 16;
 const OP_GET_PROPERTY = 20;
 const COOKIE_AUTH = 'MIT-MAGIC-COOKIE-1';
+const AUTH_FAMILY_BYTES = 2;
 const TIMEOUT_MS = 3000;
 
 export interface Frame {
@@ -30,23 +31,25 @@ function* authEntries(data: Buffer): Generator<Buffer[]> {
     return data.subarray(at - len, at);
   };
   while (at + 2 <= data.length) {
+    at += AUTH_FAMILY_BYTES;
     yield [field(), field(), field(), field()];
   }
 }
 
-function cookie(display: string): Buffer | undefined {
-  let data: Buffer;
+function readAuthority(): Buffer | undefined {
   try {
-    data = readFileSync(process.env.XAUTHORITY ?? path.join(homedir(), '.Xauthority'));
+    return readFileSync(process.env.XAUTHORITY ?? path.join(homedir(), '.Xauthority'));
   } catch {
     return undefined;
   }
-  for (const [, number, name, secret] of authEntries(data)) {
-    if (name.toString() === COOKIE_AUTH && (number.length === 0 || number.toString() === display)) {
-      return secret;
-    }
-  }
-  return undefined;
+}
+
+const forDisplay = (number: Buffer, display: string) => number.length === 0 || number.toString() === display;
+
+function cookie(display: string): Buffer | undefined {
+  const data = readAuthority();
+  const entry = data && [...authEntries(data)].find(([, number, name]) => name.toString() === COOKIE_AUTH && forDisplay(number, display));
+  return entry?.[3];
 }
 
 function setupRequest(secret?: Buffer): Buffer {
