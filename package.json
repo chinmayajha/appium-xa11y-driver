@@ -41,6 +41,7 @@
   },
   "scripts": {
     "build": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p . --noEmit",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "conformance": "npm run build && node scripts/conformance.mjs",

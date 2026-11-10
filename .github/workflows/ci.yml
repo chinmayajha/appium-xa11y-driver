@@ -10,7 +10,25 @@ permissions:
   contents: read
 
 jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: shellcheck hosts/linux/setup.sh hosts/mac/setup.sh
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
   linux:
+    needs: static
     runs-on: ubuntu-latest
     container: debian:13
     timeout-minutes: 20
@@ -33,6 +51,7 @@ jobs:
           if-no-files-found: ignore
 
   docker:
+    needs: static
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -52,6 +71,7 @@ jobs:
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
 
   macos:
+    needs: static
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
@@ -92,6 +112,7 @@ jobs:
           if-no-files-found: ignore
 
   windows:
+    needs: static
     runs-on: windows-latest
     timeout-minutes: 20
     # The Windows adapter is not proven yet: the job shows which calls still fail.
@@ -103,12 +124,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Install the driver
+        shell: bash
+        env:
+          APPIUM_HOME: ${{ runner.temp }}/appium-home
+        run: npx appium driver install --source=local "$GITHUB_WORKSPACE"
       - name: Start Appium
         shell: bash
+        env:
+          APPIUM_HOME: ${{ runner.temp }}/appium-home
         run: |
-          npx appium --port 4723 > appium.log 2>&1 &
+          npx appium --address 127.0.0.1 --port 4723 > appium.log 2>&1 &
           for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os windows
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: appium-log-windows
+          path: appium.log
+          if-no-files-found: ignore
