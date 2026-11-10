@@ -154,15 +154,22 @@ describe('editor', () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
     const calculator = await s.execute<{ pid: number }>('xa11y: launch', { app: fx.calculator.app });
+    const texts = async () => [...(await s.source()).matchAll(/\b(?:name|value|label)="([^"]*)"/g)].map((m) => m[1]).sort().join('|');
+    const shown = await texts();
     await s.execute('xa11y: switchApp', { pid: editor.pid });
     field = await s.find('xpath', fx.editor.field);
-    await rejectsWith(s.actions(keyboard(keys('7', '7', '7'))), 'invalid element state');
+    await rejectsWith(s.actions(keyboard(keys('7'))), 'invalid element state');
     await rejectsWith(s.execute('xa11y: chord', { keys: '7' }), 'invalid element state');
-    await rejectsWith(s.execute('xa11y: typeText', { text: '777' }), 'invalid element state');
+    await rejectsWith(s.execute('xa11y: typeText', { text: '7' }), 'invalid element state');
+    if (await s.attribute(field, 'clickable') === 'false') {
+      await rejectsWith(s.click(field), 'invalid element state');
+    }
+    // Send keys focuses the field first, and a focus on Windows also brings the editor to the front.
+    await s.type(field, '\uE003').catch((e: Error) => assert.match(e.message, /invalid element state/));
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(await text(), '');
     await s.execute('xa11y: switchApp', { pid: calculator.pid });
-    assert.doesNotMatch(await s.source(), /"7777?"/, 'a refused key reached the Calculator');
+    assert.equal(await texts(), shown, 'a refused key reached the Calculator');
     await s.terminateApp(fx.calculator.app);
     await s.execute('xa11y: switchApp', { pid: editor.pid });
     field = await s.find('xpath', fx.editor.field);
@@ -325,6 +332,15 @@ describe('app lifecycle', () => {
     assert.equal(after.pid, before.pid);
     const apps = await s.execute<Array<{ name: string }>>('xa11y: listApps');
     assert.equal(apps.filter((a) => a.name === before.name).length, 1);
+  });
+
+  test('activating an app that does not run launches it', async () => {
+    const calculator = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
+    assert.equal(await s.terminateApp(fx.calculator.app), true);
+    await s.activateApp(fx.calculator.app);
+    const again = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
+    assert.notEqual(again.pid, calculator.pid);
+    assert.ok(await s.find('xpath', fx.calculator.buttons['7']));
   });
 
   test('terminating another app id leaves the Session app running', async () => {
