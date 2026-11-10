@@ -4,8 +4,19 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
 - `hosts/windows/setup.ps1` prepares a Windows Host.
+
+### Changed
+
 - Windows is supported: the conformance suite passes on Windows Server 2022 and on the GitHub `windows-latest` runner.
+
+### Fixed
+
+- A W3C `pointerMove` moves the pointer in steps over its `duration`, and a move with a button down has 5 steps or more. Before, the pointer jumped to the end point, and some apps did not see a drag.
+- Two W3C click pairs at one place, with nothing between them, are one double-click. Before, they were two single clicks, which macOS does not take as a double-click.
+- An unknown W3C action type is an `invalid argument` error, and `pointerCancel` is an `unsupported operation` error. Before, the driver ignored them.
 
 ## [0.1.0]
 
