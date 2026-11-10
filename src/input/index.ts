@@ -53,7 +53,9 @@ export class Input {
         run += ch;
         continue;
       }
-      viaValue = await this.typeRun(run, viaValue ? el : undefined);
+      await this.typeRun(run, viaValue ? el : undefined);
+      // The app gets Raw input after accessibility calls that come later, so the text after a Raw key stays Raw to keep its order.
+      viaValue = false;
       run = '';
       await this.guard();
       await this.sim.press(key);
@@ -67,17 +69,13 @@ export class Input {
     return el;
   }
 
-  /** Types the run through the element's value, or as Raw input when there is no element or it refuses; true when the element took it. */
-  private async typeRun(run: string, el?: Element): Promise<boolean> {
-    if (!run) {
-      return el !== undefined;
-    }
-    if (el && await el.typeText(run).then(() => true, () => false)) {
-      return true;
+  /** Types the run through the element's value, or as Raw input when there is no element or it refuses. */
+  private async typeRun(run: string, el?: Element): Promise<void> {
+    if (!run || (el && await el.typeText(run).then(() => true, () => false))) {
+      return;
     }
     await this.guard();
     await this.sim.typeText(run);
-    return false;
   }
 
   async clear(id: string): Promise<void> {
