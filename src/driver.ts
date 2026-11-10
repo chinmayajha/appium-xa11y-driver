@@ -41,6 +41,20 @@ function toXpath(strategy: string, selector: string): string {
   }
 }
 
+const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
+
+function rawAttribute(el: Element, name: string): string | null {
+  const raw = el.raw[name];
+  return raw === undefined || raw === null ? null : String(raw);
+}
+
+function desktopRect(shot: Screenshot) {
+  const [x0, y0] = shot.imageToDesktop(0, 0);
+  const [x1, y1] = shot.imageToDesktop(shot.width - 1, shot.height - 1);
+  const scale = shot.width > 1 ? (x1 - x0) / (shot.width - 1) : 1;
+  return { x: Math.round(x0), y: Math.round(y0), width: Math.round(shot.width * scale), height: Math.round(shot.height * scale) };
+}
+
 export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   static executeMethodMap = {
     'xa11y: chord': { command: 'xa11yChord', params: { required: ['keys'] } },
@@ -55,6 +69,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
 
   private app?: App;
   private launchedPids: number[] = [];
+  private display?: { x: number; y: number; width: number; height: number };
   private handles = new Map<string, Handle>();
   private input = inputSim();
   private inputState = newInputState();
@@ -249,18 +264,18 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async getText(id: string): Promise<string> {
-    const el = await this.fresh(id);
-    return el.value ?? el.name ?? el.description ?? '';
+    return (await this.getAttribute('text', id)) ?? '';
   }
 
   async getAttribute(name: string, id: string): Promise<string | null> {
     const el = await this.fresh(id);
-    if (name === 'role') {
+    if (ROLE_ATTRIBUTES.has(name)) {
       return el.role;
     }
-    const attrs = attributesOf(el);
-    const raw = el.raw[name];
-    return attrs[name] ?? (raw === undefined || raw === null ? null : String(raw));
+    if (name === 'text') {
+      return el.value || el.name || el.description || '';
+    }
+    return attributesOf(el)[name] ?? rawAttribute(el, name);
   }
 
   async getProperty(name: string, id: string): Promise<string | null> {
@@ -298,10 +313,8 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   private toPng(shot: Screenshot): string {
-    const [x0, y0] = shot.imageToDesktop(0, 0);
-    const [x1, y1] = shot.imageToDesktop(shot.width - 1, shot.height - 1);
-    const [w, h] = [Math.round(x1 - x0) + 1, Math.round(y1 - y0) + 1];
-    return (w === shot.width && h === shot.height ? shot : shot.resize(w, h)).toPng().toString('base64');
+    const { width, height } = desktopRect(shot);
+    return (width === shot.width && height === shot.height ? shot : shot.resize(width, height)).toPng().toString('base64');
   }
 
   async getScreenshot(): Promise<string> {
@@ -341,8 +354,12 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async getWindowRect() {
-    const b = (await this.mainWindow()).bounds ?? { x: 0, y: 0, width: 0, height: 0 };
-    return { x: b.x, y: b.y, width: b.width, height: b.height };
+    this.display ??= await this.displayRect();
+    return this.display;
+  }
+
+  private async displayRect() {
+    return desktopRect(await screenshot());
   }
 
   async setWindowRect(x: number, y: number, width: number, height: number) {
@@ -353,7 +370,8 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     if (width !== null && height !== null) {
       await win.resizeTo(width, height);
     }
-    return this.getWindowRect();
+    const b = win.bounds ?? { x, y, width, height };
+    return { x: b.x, y: b.y, width: b.width, height: b.height };
   }
 
   async execute(script: string, args: unknown[]): Promise<unknown> {
@@ -394,8 +412,8 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     return (await App.list()).map((a) => ({ pid: a.pid, name: a.name, foreground: a.isForeground }));
   }
 
-  async xa11yListWindows(): Promise<Array<{ name: string | null; role: string; active: boolean }>> {
-    return (await this.requireApp().windows()).map((w) => ({ name: w.name, role: w.role, active: w.active }));
+  async xa11yListWindows() {
+    return (await this.requireApp().windows()).map((w) => ({ name: w.name, role: w.role, active: w.active, bounds: w.bounds }));
   }
 
   async xa11yActiveAppInfo(): Promise<{ pid: number | null; name: string }> {

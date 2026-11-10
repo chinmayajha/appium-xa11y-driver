@@ -41,11 +41,24 @@ function isScrollable(el: Element, role: string, type: string): boolean {
     || el.actions.some((a) => a.startsWith('scroll_') && a !== 'scroll_into_view');
 }
 
-export function attributesOf(el: Element): Record<string, string> {
-  const role = el.role;
-  const type = platformRole(el);
+function actionFlags(el: Element, role: string, type: string): Record<string, string> {
   const actions = el.actions;
-  const attrs: Record<string, string> = {
+  return {
+    clickable: String(CLICK_ROLES.has(role) || actions.some((a) => CLICK_ACTIONS.has(a))),
+    checkable: String(CHECK_ROLES.has(role) || el.checked !== null || actions.includes('toggle')),
+    editable: String(el.editable || EDIT_ROLES.has(role)),
+    scrollable: String(isScrollable(el, role, type)),
+  };
+}
+
+function boundsOf(el: Element): Record<string, string> {
+  const b = el.bounds;
+  return b ? Object.fromEntries((['x', 'y', 'width', 'height'] as const).map((k) => [k, String(Math.round(b[k]))])) : {};
+}
+
+export function attributesOf(el: Element): Record<string, string> {
+  const type = platformRole(el);
+  return {
     type,
     name: el.name ?? '',
     value: el.value ?? '',
@@ -55,22 +68,10 @@ export function attributesOf(el: Element): Record<string, string> {
     visible: String(el.visible),
     focused: String(el.focused),
     selected: String(el.selected),
-    clickable: String(CLICK_ROLES.has(role) || actions.some((a) => CLICK_ACTIONS.has(a))),
-    checkable: String(CHECK_ROLES.has(role) || el.checked !== null || actions.includes('toggle')),
-    editable: String(el.editable || EDIT_ROLES.has(role)),
-    scrollable: String(isScrollable(el, role, type)),
+    ...(el.checked === null ? {} : { checked: String(el.checked === 'on') }),
+    ...actionFlags(el, el.role, type),
+    ...boundsOf(el),
   };
-  if (el.checked !== null) {
-    attrs.checked = String(el.checked === 'on');
-  }
-  const b = el.bounds;
-  if (b) {
-    attrs.x = String(Math.round(b.x));
-    attrs.y = String(Math.round(b.y));
-    attrs.width = String(Math.round(b.width));
-    attrs.height = String(Math.round(b.height));
-  }
-  return attrs;
 }
 
 function tagFor(role: string): string {

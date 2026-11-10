@@ -70,57 +70,63 @@ async function resolvePoint(ctx: ActionContext, a: Action): Promise<Point> {
   return { x: c.x + x, y: c.y + y };
 }
 
-async function pointerAction(ctx: ActionContext, a: Action, next: Action | undefined): Promise<boolean> {
-  const button = BUTTONS[a.button ?? 0] ?? 'left';
-  if (a.type === 'pointerMove') {
+function buttonOf(a: Action): MouseButtonName {
+  return BUTTONS[a.button ?? 0] ?? 'left';
+}
+
+function pairedPointerUp(a: Action, next: Action | undefined): boolean {
+  return next?.type === 'pointerUp' && buttonOf(next) === buttonOf(a);
+}
+
+function pairedKeyUp(key: string, next: Action | undefined): boolean {
+  return !MODIFIERS.has(key) && next?.type === 'keyUp' && w3cKey(next.value ?? '') === key;
+}
+
+type Handler = (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean>;
+
+const ACTIONS: Record<string, Handler> = {
+  async pointerMove(ctx, a) {
     ctx.state.pointer = await resolvePoint(ctx, a);
     await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
     return false;
-  }
-  if (a.type === 'pointerDown' && next?.type === 'pointerUp' && (next.button ?? 0) === (a.button ?? 0)) {
-    await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
-    return true;
-  }
-  if (a.type === 'pointerDown') {
+  },
+  async pointerDown(ctx, a, next) {
+    const button = buttonOf(a);
+    if (pairedPointerUp(a, next)) {
+      await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
+      return true;
+    }
     ctx.state.buttons.add(button);
     await ctx.input.mouseDown(button);
-  } else if (a.type === 'pointerUp') {
-    ctx.state.buttons.delete(button);
-    await ctx.input.mouseUp(button);
-  }
-  return false;
-}
-
-async function keyAction(ctx: ActionContext, a: Action, next: Action | undefined): Promise<boolean> {
-  const key = w3cKey(a.value ?? '');
-  if (a.type === 'keyDown' && !MODIFIERS.has(key) && next?.type === 'keyUp' && w3cKey(next.value ?? '') === key) {
-    const held = heldModifiers(ctx.state);
-    await (held.length ? ctx.input.chord(key, held) : ctx.input.press(key));
-    return true;
-  }
-  if (a.type === 'keyDown') {
+    return false;
+  },
+  async pointerUp(ctx, a) {
+    ctx.state.buttons.delete(buttonOf(a));
+    await ctx.input.mouseUp(buttonOf(a));
+    return false;
+  },
+  async keyDown(ctx, a, next) {
+    const key = w3cKey(a.value ?? '');
+    if (pairedKeyUp(key, next)) {
+      const held = heldModifiers(ctx.state);
+      await (held.length ? ctx.input.chord(key, held) : ctx.input.press(key));
+      return true;
+    }
     ctx.state.keys.add(key);
     await ctx.input.keyDown(key);
-  } else if (a.type === 'keyUp') {
+    return false;
+  },
+  async keyUp(ctx, a) {
+    const key = w3cKey(a.value ?? '');
     ctx.state.keys.delete(key);
     await ctx.input.keyUp(key);
-  }
-  return false;
-}
-
-async function wheelAction(ctx: ActionContext, a: Action): Promise<boolean> {
-  if (a.type === 'scroll') {
+    return false;
+  },
+  async scroll(ctx, a) {
     const at = await resolvePoint(ctx, a);
     await ctx.input.scroll([at.x, at.y], wheelLines(a.deltaX ?? 0), wheelLines(a.deltaY ?? 0));
-  }
-  return false;
-}
-
-const HANDLERS: Record<ActionSequence['type'], (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean>> = {
-  pointer: pointerAction,
-  key: keyAction,
-  wheel: wheelAction,
-  none: async () => false,
+    return false;
+  },
 };
 
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
@@ -135,7 +141,7 @@ export async function perform(ctx: ActionContext, sequences: ActionSequence[]): 
       }
       if (a.type === 'pause') {
         pause = Math.max(pause, a.duration ?? 0);
-      } else if (await HANDLERS[seq.type](ctx, a, seq.actions[cursors[i] + 1])) {
+      } else if (await ACTIONS[a.type]?.(ctx, a, seq.actions[cursors[i] + 1])) {
         cursors[i]++;
       }
       cursors[i]++;
