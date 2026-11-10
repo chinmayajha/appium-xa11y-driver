@@ -285,6 +285,11 @@ describe('calculator', () => {
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerMove', x: 0, y: 0, origin: 'sideways' }] }]), 'invalid argument');
   });
 
+  test('an unknown action type is an invalid argument', async () => {
+    await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerWiggle' }] }]), 'invalid argument');
+    await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerCancel' }] }]), 'unsupported operation');
+  });
+
   test('moving the window moves its elements by the same amount', async () => {
     const before = await s.rect(await button('7'));
     const win = await s.call<{ x: number; y: number; width: number; height: number }>('POST', '/window/rect', { x: null, y: null, width: null, height: null });

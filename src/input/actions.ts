@@ -185,8 +185,14 @@ export async function pressChord(platform: Platform, input: InputSim, key: strin
 }
 
 async function dispatch(ctx: ActionContext, a: Action, next?: Action): Promise<boolean> {
+  if (a.type === 'pointerCancel') {
+    throw new errors.UnsupportedOperationError('pointerCancel is not supported');
+  }
   const handler = ACTIONS[a.type];
-  return handler ? handler(ctx, a, next) : false;
+  if (!handler) {
+    throw new errors.InvalidArgumentError(`Unknown action type '${a.type}'`);
+  }
+  return handler(ctx, a, next);
 }
 
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
