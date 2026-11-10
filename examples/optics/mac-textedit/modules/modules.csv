@@ -1,0 +1,13 @@
+module_name,module_step,param_1,param_2
+Open New Document,Launch App
+Open New Document,Assert Presence,${body}
+Type Text,Clear Element Text,${body}
+Type Text,Enter Text,${body},${greeting}
+Type Text,Assert Text,${body},${greeting}
+Toggle Bold,Press Element,${bold}
+Toggle Bold,Press Element,${bold}
+Scroll Down And Up,Enter Text,${body},${many_lines}
+Scroll Down And Up,Scroll,down
+Scroll Down And Up,Scroll,up
+Discard Document,Clear Element Text,${body}
+Discard Document,Close And Terminate App

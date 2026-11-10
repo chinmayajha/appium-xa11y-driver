@@ -1,20 +1,36 @@
 # Untested: written and checked with actionlint, but not run on GitHub yet.
-# Copy to .github/workflows/ in a repository that has an optics-framework suite.
+# Copy to .github/workflows/ in a repository that has optics-framework suites.
+# optics runs on the Host, next to Appium (docs/adr/0005-suites-run-on-the-host.md).
 name: Desktop tests
 
 on:
   workflow_dispatch:
     inputs:
-      suite:
-        description: Folder of the optics suite
-        default: tests/desktop
+      linux-suite:
+        description: Folder of the Linux optics suite
+        default: tests/linux
+      mac-suite:
+        description: Folder of the macOS optics suite
+        default: tests/mac
 
 permissions:
   contents: read
 
 jobs:
   optics:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            host: linux
+            setup: --fixtures --no-service
+            run: ~/.local/share/appium-xa11y/host.sh run
+          - os: macos-latest
+            host: mac
+            setup: --no-service
+            run: '"$HOME/Library/Application Support/appium-xa11y/host.sh" run'
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -27,10 +43,12 @@ jobs:
       - name: Find the node binary
         id: node
         run: echo "path=$(node -p 'require("fs").realpathSync(process.execPath)')" >> "$GITHUB_OUTPUT"
-      - uses: xa11y/setup-a11y@0dad2b7bb4c0d4601e99e53d9b42b3195274aa3d
+      - if: runner.os == 'macOS'
+        uses: xa11y/setup-a11y@0dad2b7bb4c0d4601e99e53d9b42b3195274aa3d
         with:
           macos-tcc-client: ${{ steps.node.outputs.path }}
       - name: Grant Screen Recording to node
+        if: runner.os == 'macOS'
         env:
           CLIENT: ${{ steps.node.outputs.path }}
         run: |
@@ -39,29 +57,30 @@ jobs:
              VALUES('kTCCServiceScreenCapture','${CLIENT}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
           sudo launchctl stop com.apple.tccd || true
           sleep 2
-      - name: Install Appium, the driver and optics
+      - name: Prepare the Host
+        env:
+          SETUP: ${{ matrix.setup }}
+          HOST: ${{ matrix.host }}
         run: |
-          npm install -g appium@3
-          appium driver install --source=npm appium-xa11y-driver
+          npm pack --silent appium-xa11y-driver | xargs tar -xzf
+          # shellcheck disable=SC2086
+          "package/hosts/$HOST/setup.sh" $SETUP
           pip install optics-framework
       - name: Start Appium
         run: |
-          appium --port 4723 --log appium.log &
-          for _ in $(seq 60); do
-            curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0
-            sleep 1
-          done
+          ${{ matrix.run }} > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "Appium did not start" >&2
           exit 1
       - name: Run the suite
         env:
-          SUITE: ${{ inputs.suite }}
+          SUITE: ${{ matrix.host == 'linux' && inputs.linux-suite || inputs.mac-suite }}
         run: optics execute "$SUITE"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: optics-results
+          name: optics-results-${{ matrix.host }}
           path: |
-            ${{ inputs.suite }}/execution_output
+            ${{ matrix.host == 'linux' && inputs.linux-suite || inputs.mac-suite }}/execution_output
             appium.log
           if-no-files-found: ignore

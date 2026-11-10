@@ -1,0 +1,7 @@
+Element_Name,Element_ID
+clear,"//button[@name=""C""]"
+seven,"//button[@name=""7""]"
+plus,"//button[@name=""+""]"
+five,"//button[@name=""5""]"
+equals,"//button[@name=""=""]"
+result,12

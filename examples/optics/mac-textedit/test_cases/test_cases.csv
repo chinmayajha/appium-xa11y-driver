@@ -1,0 +1,6 @@
+test_case,test_step
+Type And Verify,Open New Document
+Type And Verify,Type Text
+Use Format Bar,Toggle Bold
+Scroll Document,Scroll Down And Up
+Suite Teardown,Discard Document

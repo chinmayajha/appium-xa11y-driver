@@ -1,0 +1,4 @@
+test_case,test_step
+Add Two Numbers,Open Calculator
+Add Two Numbers,Add Seven And Five
+Suite Teardown,Close Calculator

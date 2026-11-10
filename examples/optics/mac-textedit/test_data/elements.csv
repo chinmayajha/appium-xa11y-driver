@@ -1,0 +1,5 @@
+Element_Name,Element_ID
+body,//text_area
+greeting,hello from optics
+bold,"//check_box[@name=""bold""]"
+many_lines,\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nline\nend

@@ -1,0 +1,18 @@
+driver_sources:
+  - appium:
+      enabled: true
+      url: "http://127.0.0.1:4723"
+      capabilities:
+        platformName: Linux
+        automationName: Xa11y
+        app: gnome-calculator
+
+elements_sources:
+  - appium_find_element:
+      enabled: true
+  - appium_page_source:
+      enabled: true
+  - appium_screenshot:
+      enabled: true
+
+log_level: INFO
