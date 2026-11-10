@@ -184,6 +184,9 @@ export class Bus {
       const bus = new Bus(socket);
       await bus.call('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'Hello');
       return bus;
+    } catch (e) {
+      socket.destroy();
+      throw e;
     } finally {
       clearTimeout(timer);
     }

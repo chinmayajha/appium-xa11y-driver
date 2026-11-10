@@ -1,21 +1,16 @@
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 import { createConnection, type Socket } from 'node:net';
+import type { Frame } from '../platform';
 import { Replies, shared } from './replies';
 
 const OP_INTERN_ATOM = 16;
 const OP_GET_PROPERTY = 20;
 const COOKIE_AUTH = 'MIT-MAGIC-COOKIE-1';
-const AUTH_FAMILY_BYTES = 2;
+const FAMILY_LOCAL = 256;
+const FAMILY_WILD = 0xffff;
 const TIMEOUT_MS = 3000;
-
-export interface Frame {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
 
 const pad = (n: number) => (4 - (n % 4)) % 4;
 
@@ -31,7 +26,15 @@ function displayNumber(display: string): string | undefined {
   return /^(?:unix)?:(\d+)(?:\.\d+)?$/.exec(display)?.[1];
 }
 
-function* authEntries(data: Buffer): Generator<Buffer[]> {
+interface AuthEntry {
+  family: number;
+  address: string;
+  number: Buffer;
+  name: string;
+  data: Buffer;
+}
+
+function* authEntries(data: Buffer): Generator<AuthEntry> {
   let at = 0;
   const field = () => {
     const len = data.readUInt16BE(at);
@@ -39,8 +42,9 @@ function* authEntries(data: Buffer): Generator<Buffer[]> {
     return data.subarray(at - len, at);
   };
   while (at + 2 <= data.length) {
-    at += AUTH_FAMILY_BYTES;
-    yield [field(), field(), field(), field()];
+    const family = data.readUInt16BE(at);
+    at += 2;
+    yield { family, address: field().toString(), number: field(), name: field().toString(), data: field() };
   }
 }
 
@@ -54,10 +58,13 @@ function readAuthority(): Buffer | undefined {
 
 const forDisplay = (number: Buffer, display: string) => number.length === 0 || number.toString() === display;
 
+/** The cookie that libXau would pick: a local entry for this host or a wildcard entry first, then any entry for the display. */
 function cookie(display: string): Buffer | undefined {
   const data = readAuthority();
-  const entry = data && [...authEntries(data)].find(([, number, name]) => name.toString() === COOKIE_AUTH && forDisplay(number, display));
-  return entry?.[3];
+  const fits = data ? [...authEntries(data)].filter((e) => e.name === COOKIE_AUTH && forDisplay(e.number, display)) : [];
+  const host = hostname();
+  const best = fits.find((e) => e.family === FAMILY_WILD || (e.family === FAMILY_LOCAL && e.address === host));
+  return (best ?? fits[0])?.data;
 }
 
 function setupRequest(secret?: Buffer): Buffer {
@@ -119,7 +126,12 @@ class X11 {
           reject(new Error(`The X server refused the connection: ${setup.subarray(8, 8 + setup[1]).toString()}`));
           return;
         }
-        resolve(new X11(socket, rootOf(setup)));
+        try {
+          resolve(new X11(socket, rootOf(setup)));
+        } catch (e) {
+          socket.destroy();
+          reject(new Error(`The X server sent a setup reply that cannot be read: ${(e as Error).message}`));
+        }
       };
       socket.on('data', onData);
       socket.once('error', (e) => {
@@ -195,8 +207,9 @@ export async function frameExtents(pid: number, title: string): Promise<Frame | 
   const x = await x11();
   const matches: number[] = [];
   for (const w of await x.cardinals(x.root, '_NET_CLIENT_LIST')) {
-    const [owner] = await x.cardinals(w, '_NET_WM_PID');
-    if (owner === pid && (await x.property(w, '_NET_WM_NAME')).toString('utf8') === title) {
+    // A window of any app can close during the scan, and its BadWindow error must not fail the lookup.
+    const owner = await x.cardinals(w, '_NET_WM_PID').then(([p]) => p, () => undefined);
+    if (owner === pid && await x.property(w, '_NET_WM_NAME').then((b) => b.toString('utf8') === title, () => false)) {
       matches.push(w);
     }
   }
