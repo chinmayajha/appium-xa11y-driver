@@ -35,6 +35,7 @@ const SCROLL_ROLES = new Set(['list', 'table', 'web_area', 'text_area']);
 const PLATFORM_ROLE_KEYS = ['ax_role', 'uia_control_type', 'atspi_role'];
 const PLATFORM_SCROLL_ROLES = new Set(['AXScrollArea', 'ScrollViewer', 'scroll pane']);
 const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
 function platformRole(el: Element): string {
   const raw = el.raw;
@@ -103,7 +104,7 @@ interface Walk {
 // macOS gives an app with no window itself as its only child, which would make the walk endless.
 async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
   for (const [k, v] of Object.entries(attributesOf(node.el, await walk.place(node)))) {
-    xml.setAttribute(k, v.replace(XML_INVALID, ''));
+    xml.setAttribute(k, v.replace(XML_INVALID, '').replace(LONE_SURROGATE, ''));
   }
   walk.nodes.set(xml, node);
   const kids = (await node.el.children())
