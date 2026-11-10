@@ -21,6 +21,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: shellcheck hosts/linux/setup.sh hosts/mac/setup.sh
+      - name: Parse the Windows setup script
+        shell: pwsh
+        run: |
+          $e = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD/hosts/windows/setup.ps1", [ref]$null, [ref]$e)
+          if ($e.Count) { $e | ForEach-Object { Write-Error $_.Message }; exit 1 }
       - name: actionlint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
@@ -122,18 +128,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - name: Install the driver
-        shell: bash
-        env:
-          APPIUM_HOME: ${{ runner.temp }}/appium-home
-        run: npx appium driver install --source=local "$GITHUB_WORKSPACE"
+      - name: Prepare the Host
+        shell: powershell
+        run: hosts/windows/setup.ps1 -Driver . -NoService
       - name: Start Appium
         shell: bash
-        env:
-          APPIUM_HOME: ${{ runner.temp }}/appium-home
         run: |
-          npx appium --address 127.0.0.1 --port 4723 > appium.log 2>&1 &
+          powershell -NoProfile -ExecutionPolicy Bypass -File "$LOCALAPPDATA/appium-xa11y/host.ps1" > appium.log 2>&1 &
           for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "Appium did not start" >&2
           exit 1
