@@ -128,6 +128,27 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver.
 
+## Node bindings
+
+### 14. Typed errors lose their error code
+
+**Status on `main`:** stale elements are fixed: `XA11Y_ELEMENT_STALE` now gives `ElementStaleError`, a subclass of `SelectorNotMatchedError` (xa11y #661). The error code is still lost. Fix: [xa11y #685](https://github.com/xa11y/xa11y/pull/685).
+
+`toTypedError` in `index.js` makes the typed error from the `XA11Y_*` code, but it does not keep the code. Some codes share one class, so the caller can tell them apart only by the message text:
+
+| Class | Codes |
+|---|---|
+| `SelectorNotMatchedError` | `XA11Y_SELECTOR_NOT_MATCHED`, `XA11Y_ELEMENT_STALE` (0.15.4) |
+| `InvalidActionDataError` | `XA11Y_INVALID_ACTION_DATA`, `XA11Y_NO_ELEMENT_BOUNDS`, `XA11Y_INVALID_CONFIG` |
+| `ActionNotSupportedError` | `XA11Y_ACTION_NOT_SUPPORTED`, `XA11Y_TEXT_VALUE_NOT_SUPPORTED`, `XA11Y_UNSUPPORTED` |
+
+```js
+// XA11Y_DEFAULT_TIMEOUT=bad
+try { xa11y.getDefaultTimeout(); } catch (e) { console.log(e.name, e.code); }
+```
+
+Seen: `InvalidActionDataError undefined`. Expected: `InvalidActionDataError XA11Y_INVALID_CONFIG`. The driver reads `e.code` first when it exists.
+
 ## Not xa11y
 
 - **GTK 4, gnome-calculator:** the `GetExtents(WINDOW)` positions of the buttons are 12 px right and 12 px down of the drawn buttons. In `gtk4-widget-factory` they are exact. A click at the centre of a rect still hits the button.
