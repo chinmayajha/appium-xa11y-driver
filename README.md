@@ -84,7 +84,7 @@ Sessions; find element(s); click, send keys, clear, text, attribute, rect, displ
 
 | Method | Arguments |
 |---|---|
-| `xa11y: chord` | `keys`, e.g. `cmd+shift+s`, `ctrl+a`, `Enter` |
+| `xa11y: chord` | `keys`, e.g. `cmd+shift+s`, `ctrl+a`, `Enter`; `primary+a` is `cmd+a` on macOS and `ctrl+a` on Windows and Linux |
 | `xa11y: typeText` | `text` |
 | `xa11y: focusWindow`, `xa11y: closeWindow` | `name` (optional) |
 | `xa11y: launch` | `app`, `arguments` (optional); the session switches to it |
@@ -96,6 +96,28 @@ Every command is logged with its duration.
 ## Tests
 
 `npm test` drives TextEdit on macOS and needs the permissions above.
+
+`scripts/webdriver-smoke.mjs` runs the main commands over WebDriver against a running server: `node scripts/webdriver-smoke.mjs <server url> <app> <text field xpath> [platformName]`.
+
+### Linux in Docker
+
+`docker/linux` builds Ubuntu 24.04 with Xvfb, the AT-SPI bus, GNOME Text Editor and Appium with this driver:
+
+```bash
+docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .
+docker run --rm -p 127.0.0.1:4723:4723 appium-xa11y-linux
+node scripts/webdriver-smoke.mjs http://127.0.0.1:4723 gnome-text-editor "//text" Linux
+```
+
+## Adding an OS
+
+All OS-specific behavior is in `src/platforms`. The driver selects one `Platform` when a session starts (`currentPlatform()` in `src/platforms/index.ts`). The tree, focus, clicks, typing and screenshots go through xa11y on every OS.
+
+1. Add `src/platforms/<os>.ts`. Export a `Platform`: how to launch an app and get its pid, how to send a wheel event, how to release keys, the `primary` chord modifier, and a permission hint for session errors.
+2. Use the helpers in `common.ts` where the xa11y behavior is correct for the OS.
+3. For a call that the OS cannot do yet, throw `notSupportedYet('<os>', '<call>')`. The client gets `Not supported yet on <os>: <call>`. Do not fall back to the behavior of a different OS.
+4. Add the module to `PLATFORMS` in `src/platforms/index.ts`.
+5. Add the OS to the CI matrix with an app that the OS includes.
 
 ## License
 

@@ -7,11 +7,12 @@ import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDrive
 import xpath from 'xpath';
 import type { Element as XmlElement } from '@xmldom/xmldom';
 import { perform, pressChord, release, newInputState, type ActionContext, type ActionSequence, type Point } from './actions';
-import { attach, launch, terminate } from './app';
+import { attach, terminate } from './app';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
 import { isSpecialKey, parseChord, w3cKey } from './keys';
 import { attributesOf, snapshot, toXml, type Node, type Path } from './tree';
 import { asWebDriverError } from './errors';
+import { currentPlatform, type Platform } from './platforms';
 
 interface Handle {
   el: Element;
@@ -104,6 +105,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   private launchedPids: number[] = [];
   private display?: { x: number; y: number; width: number; height: number };
   private handles = new Map<string, Handle>();
+  private platform?: Platform;
   private input = inputSim();
   private inputState = newInputState();
 
@@ -118,7 +120,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     try {
       return await super.executeCommand<T>(cmd, ...args);
     } catch (e) {
-      throw asWebDriverError(e);
+      throw asWebDriverError(e, this.platform?.permissionHint);
     } finally {
       this.log.info(`${cmd} took ${Math.round(performance.now() - started)} ms`);
     }
@@ -130,9 +132,10 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   ): Promise<DefaultCreateSessionResult<Xa11yConstraints>> {
     const result = await super.createSession(w3cCaps1, w3cCaps2, w3cCaps3, driverData);
     try {
+      this.platform = currentPlatform();
       const timeout = this.opts.launchTimeout ?? 20000;
       if (this.opts.app) {
-        const pid = await launch(this.opts.app, this.opts.appArguments ?? [], timeout);
+        const pid = await this.platform.launch(this.opts.app, this.opts.appArguments ?? [], timeout);
         this.launchedPids.push(pid);
         this.app = await attach({ pid }, timeout);
       } else {
@@ -140,19 +143,22 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
       }
     } catch (e) {
       await this.deleteSession();
-      throw asWebDriverError(e);
+      throw asWebDriverError(e, this.platform?.permissionHint);
     }
     return result;
   }
 
   async deleteSession(sessionId?: string | null): Promise<void> {
-    await release(this.actionContext()).catch(() => undefined);
+    if (this.platform) {
+      await release(this.actionContext()).catch(() => undefined);
+    }
     if (this.opts.terminateOnDelete !== false) {
       this.launchedPids.forEach(terminate);
     }
     this.launchedPids = [];
     this.handles.clear();
     this.app = undefined;
+    this.platform = undefined;
     await super.deleteSession(sessionId);
   }
 
@@ -381,8 +387,16 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     return this.toPng(await screenshot({ element: await this.fresh(id) }));
   }
 
+  private requirePlatform(): Platform {
+    if (!this.platform) {
+      throw new errors.NoSuchDriverError('No session is running');
+    }
+    return this.platform;
+  }
+
   private actionContext(): ActionContext {
     return {
+      platform: this.requirePlatform(),
       input: this.input,
       state: this.inputState,
       elementCenter: async (id: string): Promise<Point> => visibleCenter(await this.fresh(id)),
@@ -436,9 +450,9 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async xa11yChord(keys: string): Promise<void> {
-    const chord = parseChord(keys);
-    const input = await this.foregroundInput();
-    await pressChord(input, chord.key, chord.held);
+    const platform = this.requirePlatform();
+    const chord = parseChord(keys, platform.primaryModifier);
+    await pressChord(platform, await this.foregroundInput(), chord.key, chord.held);
   }
 
   async xa11yTypeText(text: string): Promise<void> {
@@ -454,7 +468,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async xa11yLaunch(app: string, args: string[] = []): Promise<{ pid: number; name: string }> {
-    const pid = await launch(app, args, this.opts.launchTimeout ?? 20000);
+    const pid = await this.requirePlatform().launch(app, args, this.opts.launchTimeout ?? 20000);
     this.launchedPids.push(pid);
     this.app = await attach({ pid }, this.opts.launchTimeout ?? 20000);
     this.handles.clear();

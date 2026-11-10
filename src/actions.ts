@@ -1,12 +1,9 @@
 import type { InputSim, MouseButtonName } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
-import { postPixelScroll, waitForModifierRelease } from './macos-events';
+import type { Platform, Point } from './platforms';
 
-export interface Point {
-  x: number;
-  y: number;
-}
+export type { Point };
 
 interface Action {
   type: string;
@@ -33,14 +30,13 @@ export interface InputState {
 }
 
 export interface ActionContext {
+  platform: Platform;
   input: InputSim;
   state: InputState;
   elementCenter: (elementId: string) => Promise<Point>;
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
-const WHEEL_PIXELS_PER_LINE = 20;
-const mac = process.platform === 'darwin';
 
 export function newInputState(): InputState {
   return { pointer: { x: 0, y: 0 }, buttons: new Set(), keys: new Set() };
@@ -48,28 +44,6 @@ export function newInputState(): InputState {
 
 function heldModifiers(state: InputState): string[] {
   return [...state.keys].filter((k) => MODIFIERS.has(k));
-}
-
-function wheelLines(pixels: number): number {
-  return pixels ? Math.sign(pixels) * Math.max(1, Math.round(Math.abs(pixels) / WHEEL_PIXELS_PER_LINE)) : 0;
-}
-
-async function wheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void> {
-  if (!mac) {
-    await input.scroll([at.x, at.y], wheelLines(dx), wheelLines(dy));
-    return;
-  }
-  await input.moveTo([at.x, at.y]);
-  await postPixelScroll(at, dx, dy);
-}
-
-async function releaseKeys(input: InputSim, keys: string[]): Promise<void> {
-  for (const k of keys) {
-    await input.keyUp(k);
-  }
-  if (mac) {
-    await waitForModifierRelease(keys);
-  }
 }
 
 async function resolvePoint(ctx: ActionContext, a: Action): Promise<Point> {
@@ -138,24 +112,24 @@ const ACTIONS: Record<string, Handler> = {
   async keyUp(ctx, a) {
     const key = w3cKey(a.value ?? '');
     ctx.state.keys.delete(key);
-    await releaseKeys(ctx.input, [key]);
+    await ctx.platform.releaseKeys(ctx.input, [key]);
     return false;
   },
   async scroll(ctx, a) {
-    await wheel(ctx.input, await resolvePoint(ctx, a), a.deltaX ?? 0, a.deltaY ?? 0);
+    await ctx.platform.wheel(ctx.input, await resolvePoint(ctx, a), a.deltaX ?? 0, a.deltaY ?? 0);
     return false;
   },
 };
 
 // xa11y's chord does not wait for its modifier release, so a key sent right after it can still carry the modifiers.
-export async function pressChord(input: InputSim, key: string, held: string[]): Promise<void> {
+export async function pressChord(platform: Platform, input: InputSim, key: string, held: string[]): Promise<void> {
   for (const m of held) {
     await input.keyDown(m);
   }
   try {
     await input.press(key);
   } finally {
-    await releaseKeys(input, [...held].reverse());
+    await platform.releaseKeys(input, [...held].reverse());
   }
 }
 
@@ -186,7 +160,7 @@ export async function release(ctx: ActionContext): Promise<void> {
   for (const button of ctx.state.buttons) {
     await ctx.input.mouseUp(button);
   }
-  await releaseKeys(ctx.input, [...ctx.state.keys]);
+  await ctx.platform.releaseKeys(ctx.input, [...ctx.state.keys]);
   ctx.state.buttons.clear();
   ctx.state.keys.clear();
 }
