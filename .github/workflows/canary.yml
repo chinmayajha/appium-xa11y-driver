@@ -1,0 +1,73 @@
+name: xa11y canary
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: debian:13
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: Install Node.js and Appium
+        run: hosts/linux/setup.sh --driver . --fixtures --no-service
+      - run: echo "$HOME/.local/share/appium-xa11y/node/bin" >> "$GITHUB_PATH"
+      - name: Compare the pinned and the newest xa11y
+        id: xa11y
+        run: |
+          pinned=$(node -p "require('./package.json').dependencies['@crowecawcaw/xa11y']")
+          latest=$(npm view @crowecawcaw/xa11y version)
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$pinned" = "$latest" ]; then echo "new=no" >> "$GITHUB_OUTPUT"; else echo "new=yes" >> "$GITHUB_OUTPUT"; fi
+      - name: Build the driver with the newest xa11y
+        if: steps.xa11y.outputs.new == 'yes'
+        env:
+          LATEST: ${{ steps.xa11y.outputs.latest }}
+        run: |
+          npm install --no-save --no-audit --no-fund "@crowecawcaw/xa11y@$LATEST"
+          npm run build
+      - name: Start Appium
+        if: steps.xa11y.outputs.new == 'yes'
+        run: |
+          ~/.local/share/appium-xa11y/host.sh run > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          echo "Appium did not start" >&2
+          exit 1
+      - name: Run the conformance suite
+        id: suite
+        if: steps.xa11y.outputs.new == 'yes'
+        continue-on-error: true
+        run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
+      - name: Open one issue for the release
+        if: steps.xa11y.outputs.new == 'yes'
+        env:
+          LATEST: ${{ steps.xa11y.outputs.latest }}
+          PINNED: ${{ steps.xa11y.outputs.pinned }}
+          RESULT: ${{ steps.suite.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          apt-get install -y -qq --no-install-recommends gh > /dev/null
+          title="xa11y $LATEST is released"
+          if [ -n "$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "in:title \"$title\"" --json number --jq '.[0].number')" ]; then
+            echo "An issue for $LATEST exists"
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "The driver pins xa11y $PINNED. The Linux conformance suite with xa11y $LATEST: **$RESULT**. Run: $RUN_URL
+
+          Read docs/xa11y-gaps.md. For each item that the release fixes, delete the workaround in the driver and update the item. Then change the pinned version in package.json."
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: appium-log-canary
+          path: appium.log
+          if-no-files-found: ignore
