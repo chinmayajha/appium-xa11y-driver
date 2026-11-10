@@ -117,7 +117,15 @@ function pairedKeyUp(key: string, next: Action | undefined): boolean {
   return !MODIFIERS.has(key) && next?.type === 'keyUp' && w3cKey(next.value ?? '') === key;
 }
 
-type Handler = (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean>;
+function clickCount(a: Action, rest: Action[]): number {
+  if (!pairedPointerUp(a, rest[0])) {
+    return 0;
+  }
+  const again = rest[1]?.type === 'pointerDown' && buttonOf(rest[1]) === buttonOf(a) && pairedPointerUp(rest[1], rest[2]);
+  return again ? 2 : 1;
+}
+
+type Handler = (ctx: ActionContext, a: Action, rest: Action[]) => Promise<number>;
 
 const ACTIONS: Record<string, Handler> = {
   async pointerMove(ctx, a) {
@@ -135,22 +143,23 @@ const ACTIONS: Record<string, Handler> = {
         await new Promise((r) => setTimeout(r, wait));
       }
     }
-    return false;
+    return 0;
   },
-  async pointerDown(ctx, a, next) {
+  async pointerDown(ctx, a, rest) {
     const button = buttonOf(a);
     await afterRelease(ctx);
     await ctx.guard();
-    if (pairedPointerUp(a, next)) {
-      await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
+    const count = clickCount(a, rest);
+    if (count) {
+      await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, count, held: heldModifiers(ctx.state) });
       ctx.state.releasedAt = Date.now();
       ctx.state.synced = true;
-      return true;
+      return count * 2 - 1;
     }
     await atPointer(ctx);
     ctx.state.buttons.add(button);
     await ctx.input.mouseDown(button);
-    return false;
+    return 0;
   },
   async pointerUp(ctx, a) {
     const button = buttonOf(a);
@@ -158,24 +167,24 @@ const ACTIONS: Record<string, Handler> = {
     await atPointer(ctx);
     await ctx.input.mouseUp(button);
     ctx.state.releasedAt = Date.now();
-    return false;
+    return 0;
   },
-  async keyDown(ctx, a, next) {
+  async keyDown(ctx, a, rest) {
     const key = w3cKey(a.value ?? '');
     await ctx.guard();
-    if (pairedKeyUp(key, next)) {
+    if (pairedKeyUp(key, rest[0])) {
       await ctx.platform.pressKey(ctx.input, key);
-      return true;
+      return 1;
     }
     ctx.state.keys.add(key);
     await ctx.input.keyDown(key);
-    return false;
+    return 0;
   },
   async keyUp(ctx, a) {
     const key = w3cKey(a.value ?? '');
     ctx.state.keys.delete(key);
     await ctx.platform.releaseKeys(ctx.input, [key]);
-    return false;
+    return 0;
   },
   async scroll(ctx, a) {
     const at = await onDesktop(ctx, await resolvePoint(ctx, a));
@@ -183,7 +192,7 @@ const ACTIONS: Record<string, Handler> = {
     await ctx.guard();
     ctx.state.synced = false;
     await ctx.platform.wheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0);
-    return false;
+    return 0;
   },
 };
 
@@ -201,7 +210,7 @@ export async function pressChord(platform: Platform, input: InputSim, key: strin
   }
 }
 
-async function dispatch(ctx: ActionContext, a: Action, next?: Action): Promise<boolean> {
+async function dispatch(ctx: ActionContext, a: Action, rest: Action[]): Promise<number> {
   if (a.type === 'pointerCancel') {
     throw new errors.UnsupportedOperationError('pointerCancel is not supported');
   }
@@ -209,7 +218,7 @@ async function dispatch(ctx: ActionContext, a: Action, next?: Action): Promise<b
   if (!handler) {
     throw new errors.InvalidArgumentError(`Unknown action type '${a.type}'`);
   }
-  return handler(ctx, a, next);
+  return handler(ctx, a, rest);
 }
 
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
@@ -233,8 +242,8 @@ async function performTicks(ctx: ActionContext, sequences: ActionSequence[]): Pr
       }
       if (a.type === 'pause') {
         pause = Math.max(pause, a.duration ?? 0);
-      } else if (await dispatch(ctx, a, seq.actions[cursors[i] + 1])) {
-        cursors[i]++;
+      } else {
+        cursors[i] += await dispatch(ctx, a, seq.actions.slice(cursors[i] + 1));
       }
       cursors[i]++;
     }
