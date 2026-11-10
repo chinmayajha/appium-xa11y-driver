@@ -60,3 +60,8 @@ export async function waitForModifierRelease(keys: string[]): Promise<void> {
 export async function clearFunctionFlags(): Promise<void> {
   await jxa(SETTLE_FLAGS, [FUNCTION_FLAGS, 1]);
 }
+
+export async function flagsNow(): Promise<string> {
+  const { stdout } = await jxa("ObjC.import('CoreGraphics'); function run() { return [0, 1].map((s) => Number($.CGEventSourceFlagsState(s)).toString(16)).join('/'); }", []);
+  return stdout.trim();
+}

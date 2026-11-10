@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString } from './common';
-import { clearFunctionFlags, postPixelScroll, waitForModifierRelease } from './mac-events';
+import { clearFunctionFlags, flagsNow, postPixelScroll, waitForModifierRelease } from './mac-events';
 import type { Platform } from './platform';
 
 const run = promisify(execFile);
@@ -97,8 +97,12 @@ export const mac: Platform = {
   },
   async pressKey(input, key) {
     await input.press(key);
+    if (key !== 'Enter') {
+      console.error(`[DEBUG-mac2] after ${key}: flags ${await flagsNow()} front ${await mac.frontmostName()}`);
+    }
     if (FUNCTION_KEYS.has(key)) {
       await clearFunctionFlags();
+      console.error(`[DEBUG-mac2] cleared after ${key}: flags ${await flagsNow()} front ${await mac.frontmostName()}`);
     }
   },
   async releaseKeys(input, keys) {
