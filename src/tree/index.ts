@@ -17,8 +17,8 @@ interface Found {
 
 interface Handle extends Found {
   pid: number | null;
-  identity: string;
-  name: string;
+  /** The identity, or the name when the element has no identity; empty when it has neither. */
+  key: string;
 }
 
 interface Resolved {
@@ -149,7 +149,7 @@ export class Tree {
       this.handles.delete(this.handles.keys().next().value as string);
     }
     const id = randomUUID();
-    this.handles.set(id, { ...found, pid: this.target.app.pid, identity: this.platform.identity(found.el), name: found.el.name ?? '' });
+    this.handles.set(id, { ...found, pid: this.target.app.pid, key: this.keyOf(found.el) });
     return id;
   }
 
@@ -179,10 +179,12 @@ export class Tree {
     if (el.role !== h.el.role) {
       return `Element changed from ${h.el.role} to ${el.role}`;
     }
-    if (h.identity) {
-      return this.platform.identity(el) === h.identity ? undefined : `A different ${el.role} element is now at the place of this one`;
-    }
-    return h.name && el.name !== h.name ? `The ${el.role} element '${h.name}' is now named '${el.name ?? ''}'` : undefined;
+    const key = this.keyOf(el);
+    return h.key && key !== h.key ? `A different ${el.role} element is at the place of this one: '${h.key}' before, '${key}' now` : undefined;
+  }
+
+  private keyOf(el: Element): string {
+    return this.platform.identity(el) || (el.name ?? '');
   }
 
   private async resolve(id: string): Promise<Resolved> {

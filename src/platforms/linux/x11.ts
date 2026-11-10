@@ -19,6 +19,14 @@ export interface Frame {
 
 const pad = (n: number) => (4 - (n % 4)) % 4;
 
+/** The size of the packet at the start of the buffer: replies carry a length, errors and events are 32 bytes. */
+function packetSize(buffer: Buffer): number {
+  if (buffer.length < 32) {
+    return Infinity;
+  }
+  return buffer[0] === 1 ? 32 + 4 * buffer.readUInt32LE(4) : 32;
+}
+
 function displayNumber(display: string): string | undefined {
   return /^(?:unix)?:(\d+)(?:\.\d+)?$/.exec(display)?.[1];
 }
@@ -124,16 +132,17 @@ class X11 {
 
   private receive(chunk: Buffer): void {
     this.buffer = Buffer.concat([this.buffer, chunk]);
-    while (this.buffer.length >= 32) {
-      const size = this.buffer[0] === 1 ? 32 + 4 * this.buffer.readUInt32LE(4) : 32;
-      if (this.buffer.length < size) {
-        return;
-      }
-      const packet = this.buffer.subarray(0, size);
+    for (let size = packetSize(this.buffer); this.buffer.length >= size; size = packetSize(this.buffer)) {
+      this.settle(this.buffer.subarray(0, size));
       this.buffer = this.buffer.subarray(size);
-      if (packet[0] <= 1) {
-        this.replies.settle(packet.readUInt16LE(2), packet[0] === 1 ? { value: packet } : { error: new Error(`X11 error ${packet[1]}`) });
-      }
+    }
+  }
+
+  private settle(packet: Buffer): void {
+    if (packet[0] === 0) {
+      this.replies.settle(packet.readUInt16LE(2), { error: new Error(`X11 error ${packet[1]}`) });
+    } else if (packet[0] === 1) {
+      this.replies.settle(packet.readUInt16LE(2), { value: packet });
     }
   }
 

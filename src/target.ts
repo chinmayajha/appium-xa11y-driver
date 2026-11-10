@@ -1,8 +1,11 @@
 import { App, type Element } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import type { Platform } from './platforms';
+import { mainWindow } from './platforms/common';
 
 const WINDOW_WAIT_MS = 5000;
+
+const noWindow = (name?: string) => new errors.NoSuchWindowError(name ? `No window named '${name}'` : 'The app has no window');
 
 export interface AppRef {
   name?: string;
@@ -67,11 +70,7 @@ export class Target {
 
   /** Stops the instances of this app that the session started or that run now; true when there was one. */
   async terminate(appId: string): Promise<boolean> {
-    const running = await this.platform.runningPid(appId);
-    const pids = new Set(this.launched.filter((l) => l.appId === appId).map((l) => l.pid));
-    if (running !== undefined) {
-      pids.add(running);
-    }
+    const pids = await this.pidsOf(appId);
     for (const pid of pids) {
       this.platform.terminate(pid);
     }
@@ -83,10 +82,9 @@ export class Target {
   }
 
   async window(name?: string): Promise<Element> {
-    const windows = await this.app.windows();
-    const win = name ? windows.find((w) => w.name === name) : windows.find((w) => w.active) ?? windows[0];
+    const win = name ? (await this.app.windows()).find((w) => w.name === name) : await mainWindow(this.app);
     if (!win) {
-      throw new errors.NoSuchWindowError(name ? `No window named '${name}'` : 'The app has no window');
+      throw noWindow(name);
     }
     return win;
   }
@@ -116,6 +114,12 @@ export class Target {
 
   async list(): Promise<Array<{ pid: number | null; name: string; foreground: boolean }>> {
     return (await App.list()).map((a) => ({ pid: a.pid, name: a.name, foreground: a.isForeground }));
+  }
+
+  private async pidsOf(appId: string): Promise<Set<number>> {
+    const running = await this.platform.runningPid(appId);
+    const pids = this.launched.filter((l) => l.appId === appId).map((l) => l.pid);
+    return new Set(running === undefined ? pids : [...pids, running]);
   }
 
   terminateLaunched(): boolean {
