@@ -132,8 +132,18 @@ export class Tree {
     if (name === 'text') {
       return el.value || el.name || el.description || '';
     }
-    const attrs = attributesOf(el, await this.place({ el, path: [], top }), this.platform);
+    const attrs = await this.attributes(el, top);
     return attrs[name] ?? rawAttribute(el, name);
+  }
+
+  async state(id: string): Promise<{ enabled: boolean; selected: boolean; displayed: boolean }> {
+    const { el, top } = await this.resolve(id);
+    const attrs = await this.attributes(el, top);
+    return { enabled: el.enabled, selected: el.selected || el.checked === 'on', displayed: attrs.visible === 'true' };
+  }
+
+  private async attributes(el: Element, top?: Element): Promise<Record<string, string>> {
+    return attributesOf(el, await this.place({ el, path: [], top }), this.platform);
   }
 
   private remember(found: Found): string {
