@@ -41,15 +41,13 @@ export interface ActionContext {
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
-// GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
-const AFTER_RELEASE_MS = 50;
 
 export function newInputState(): InputState {
   return { pointer: { x: 0, y: 0 }, buttons: new Set(), keys: new Set(), releasedAt: 0 };
 }
 
-async function afterRelease(state: InputState): Promise<void> {
-  const wait = state.releasedAt + AFTER_RELEASE_MS - Date.now();
+async function afterRelease(ctx: ActionContext): Promise<void> {
+  const wait = ctx.state.releasedAt + ctx.platform.settleAfterReleaseMs - Date.now();
   if (wait > 0) {
     await new Promise((r) => setTimeout(r, wait));
   }
@@ -100,13 +98,13 @@ const ACTIONS: Record<string, Handler> = {
       throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
     }
     ctx.state.pointer = to;
-    await afterRelease(ctx.state);
+    await afterRelease(ctx);
     await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
     return false;
   },
   async pointerDown(ctx, a, next) {
     const button = buttonOf(a);
-    await afterRelease(ctx.state);
+    await afterRelease(ctx);
     if (pairedPointerUp(a, next)) {
       await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, held: heldModifiers(ctx.state) });
       ctx.state.releasedAt = Date.now();

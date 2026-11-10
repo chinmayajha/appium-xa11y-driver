@@ -96,7 +96,7 @@ Chords, `xa11y: typeText`, W3C actions and clicks on elements with no press acti
 
 On macOS the driver sends wheel actions as continuous pixel scroll events, the same events that a trackpad sends. Tools that invert the mouse wheel change only line events, so a positive `deltaY` scrolls down on all Macs. On Linux the driver changes wheel deltas to scroll lines of 20 px.
 
-After a pointer button is released, the driver waits until 50 ms have passed before the next pointer move or press. GTK 4 loses a click that comes in the same turn of its main loop as the previous release. The wait does not change a double click.
+On Linux, after a pointer button is released, the driver waits until 50 ms have passed before the next pointer move or press. GTK 4 loses a click that comes in the same turn of its main loop as the previous release. The wait does not change a double click.
 
 ## Command notes
 

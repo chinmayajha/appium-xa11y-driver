@@ -98,4 +98,5 @@ export const mac: Platform = {
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => rawString(el, 'ax_role'),
   scrollTypes: new Set(['AXScrollArea']),
+  settleAfterReleaseMs: 0,
 };

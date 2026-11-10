@@ -25,4 +25,5 @@ export const windows: Platform = {
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => rawString(el, 'uia_control_type'),
   scrollTypes: new Set(['ScrollViewer']),
+  settleAfterReleaseMs: 0,
 };

@@ -35,6 +35,8 @@ export interface Platform {
   platformRole(el: Element): string;
   /** OS role names of scroll containers. */
   readonly scrollTypes: ReadonlySet<string>;
+  /** Wait after a pointer release before the next pointer event; some toolkits drop a click otherwise. */
+  readonly settleAfterReleaseMs: number;
 }
 
 export function notSupportedYet(os: string, call: string): Error {

@@ -89,4 +89,6 @@ export const linux: Platform = {
   identity: (el) => `${String(el.raw.bus_name ?? '')}${String(el.raw.object_path ?? '')}`,
   platformRole: (el) => rawString(el, 'atspi_role'),
   scrollTypes: new Set(['scroll pane']),
+  // GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
+  settleAfterReleaseMs: 50,
 };
