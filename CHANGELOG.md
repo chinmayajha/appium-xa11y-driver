@@ -4,6 +4,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+- `hosts/windows/setup.ps1` prepares a Windows Host.
 - Windows is supported: the conformance suite passes on Windows Server 2022 and on the GitHub `windows-latest` runner.
 
 ## [0.1.0]
