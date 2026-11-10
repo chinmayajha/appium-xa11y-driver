@@ -91,6 +91,29 @@ export class Target {
     return win;
   }
 
+  async focusWindow(name?: string): Promise<void> {
+    await this.platform.activate(this.app, name ? await this.window(name) : undefined);
+  }
+
+  async closeWindow(name?: string): Promise<void> {
+    await (await this.window(name)).close();
+  }
+
+  /** Moves the main window when x and y are set, and resizes it when width and height are set. */
+  async moveWindow(rect: { x: number | null; y: number | null; width: number | null; height: number | null }): Promise<void> {
+    const win = await this.window();
+    if (rect.x != null && rect.y != null) {
+      await win.moveTo(rect.x, rect.y);
+    }
+    if (rect.width != null && rect.height != null) {
+      await win.resizeTo(rect.width, rect.height);
+    }
+  }
+
+  async windows(): Promise<Array<Pick<Element, 'name' | 'role' | 'active' | 'bounds'>>> {
+    return (await this.app.windows()).map((w) => ({ name: w.name, role: w.role, active: w.active, bounds: w.bounds }));
+  }
+
   async list(): Promise<Array<{ pid: number | null; name: string; foreground: boolean }>> {
     return (await App.list()).map((a) => ({ pid: a.pid, name: a.name, foreground: a.isForeground }));
   }

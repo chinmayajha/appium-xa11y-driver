@@ -20,7 +20,7 @@ export interface Platform {
   /** The name of the Frontmost app, for error messages. */
   frontmostName(): Promise<string | undefined>;
   /** Make the app's window the active window. */
-  activate(app: App): Promise<void>;
+  activate(app: App, window?: Element): Promise<void>;
   /** Scroll by W3C wheel deltas in pixels: positive dx goes right, positive dy goes down. */
   wheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void>;
   /** Release keys and return when the next synthetic key can no longer carry them. */

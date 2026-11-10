@@ -63,8 +63,8 @@ export async function mainWindow(app: App): Promise<Element | undefined> {
   return windows.find((w) => w.active) ?? windows[0];
 }
 
-export async function activateWindow(app: App): Promise<void> {
-  const win = await mainWindow(app);
+export async function activateWindow(app: App, window?: Element): Promise<void> {
+  const win = window ?? await mainWindow(app);
   if (!win) {
     throw new errors.NoSuchWindowError(`${app.name} has no window to activate`);
   }
