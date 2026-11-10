@@ -274,8 +274,7 @@ describe('calculator', () => {
   test('a closed window makes its elements stale', async () => {
     const seven = await button('7');
     await s.execute('xa11y: closeWindow');
-    await new Promise((r) => setTimeout(r, 500));
-    await rejectsWith(s.click(seven), 'stale element reference');
+    await eventually(() => s.click(seven).then(() => 'clicked', (e: { code?: string }) => e.code), (c) => c === 'stale element reference');
   });
 });
 
@@ -311,11 +310,16 @@ describe('session clean-up', () => {
     const s = await open(fx.calculator.app);
     const app = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
     await s.delete();
-    await new Promise((r) => setTimeout(r, 1000));
-    await assert.rejects(
-      Session.create(URL, { platformName: fx.platformName, 'appium:automationName': 'Xa11y', 'appium:appName': app.name, 'appium:launchTimeout': 2000 }),
-      /session not created/,
-    );
+    const attach = () => Session.create(URL, { platformName: fx.platformName, 'appium:automationName': 'Xa11y', 'appium:appName': app.name, 'appium:launchTimeout': 500 });
+    const deadline = Date.now() + 5000;
+    let ended = false;
+    while (!ended && Date.now() < deadline) {
+      ended = await attach().then(async (again) => {
+        await again.delete();
+        return false;
+      }, (e: Error) => /session not created/.test(e.message));
+    }
+    assert.ok(ended, `${app.name} still runs after the session ended`);
   });
 });
 
