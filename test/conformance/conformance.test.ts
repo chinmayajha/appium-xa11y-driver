@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { DOMParser, type Element as XmlElement } from '@xmldom/xmldom';
+import xpath from 'xpath';
 import { ELEMENT, Session, eventually, pngSize, rejectsWith } from './client';
 import { fixturesFor } from './fixtures';
 
@@ -71,6 +72,13 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'hello xa11y');
   });
 
+  test('the text field is editable and focused after a click', async () => {
+    await s.click(field);
+    assert.equal(await s.attribute(field, 'editable'), 'true');
+    const focused = await s.active();
+    assert.equal(await s.call<string>('GET', `/element/${focused}/name`), fx.editor.field.replace(/^\/\//, ''));
+  });
+
   test('types special keys', async () => {
     await s.clear(field);
     await s.type(field, 'abcd');
@@ -122,6 +130,14 @@ describe('editor', () => {
     }
   });
 
+  test('releasing actions lets go of a held Shift', async () => {
+    await s.clear(field);
+    await s.actions(keyboard([{ type: 'keyDown', value: '\uE008' }]));
+    await s.releaseActions();
+    await s.actions(keyboard(keys('a')));
+    await eventually(text, (v) => v === 'a');
+  });
+
   test('the Frontmost guard refuses raw input while another app is in front', async () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
@@ -165,6 +181,51 @@ describe('calculator', () => {
       assert.equal(await s.attribute(await s.find('id', fx.calculator.stableId.id), 'name'), fx.calculator.stableId.name);
     }
     await rejectsWith(s.find('xpath', "//button[@name='no such button']"), 'no such element');
+  });
+
+  test('displayed and enabled report a visible button', async () => {
+    const seven = await button('7');
+    assert.equal(await s.displayed(seven), true);
+    assert.equal(await s.enabled(seven), true);
+  });
+
+  test('finds inside an element', async () => {
+    const win = await s.find('xpath', '//window');
+    const inside = await s.find('xpath', fx.calculator.buttons['7'].replace(/^\/\//, './/'), win);
+    assert.deepEqual(await s.rect(inside), await s.rect(await button('7')));
+  });
+
+  test('an invalid xpath is an invalid selector', async () => {
+    await rejectsWith(s.find('xpath', '//button[@'), 'invalid selector');
+  });
+
+  test('only xa11y execute methods exist', async () => {
+    await rejectsWith(s.execute('mobile: shell', {}), 'unknown method');
+  });
+
+  test('lists the windows of the Session app', async () => {
+    const windows = await s.execute<Array<{ name: string }>>('xa11y: listWindows');
+    assert.ok(windows.some((w) => w.name), JSON.stringify(windows));
+  });
+
+  test('page source bounds equal the element rect', async () => {
+    const doc = new DOMParser().parseFromString(await s.source(), 'text/xml');
+    const [node] = xpath.select(fx.calculator.buttons['7'], doc as unknown as Node) as unknown as XmlElement[];
+    assert.ok(node, 'button 7 is not in the page source');
+    const r = await s.rect(await button('7'));
+    for (const b of BOUNDS) {
+      assert.ok(Math.abs(Number(node.getAttribute(b)) - r[b as keyof typeof r]) <= 1, `${b}: ${node.getAttribute(b)} vs ${r[b as keyof typeof r]}`);
+    }
+  });
+
+  test('buttons are clickable', async () => {
+    assert.equal(await s.attribute(await button('7'), 'clickable'), 'true');
+  });
+
+  test('Linux elements have no Stable id', { skip: process.env.CONFORMANCE_OS !== 'linux' && 'Linux only' }, async () => {
+    const doc = new DOMParser().parseFromString(await s.source(), 'text/xml');
+    const ids = (Array.from(doc.getElementsByTagName('*')) as XmlElement[]).map((el) => el.getAttribute('id'));
+    assert.ok(ids.every((id) => id === ''), JSON.stringify(ids.filter((id) => id !== '').slice(0, 5)));
   });
 
   test('accessibility clicks press buttons', async () => {
@@ -215,6 +276,33 @@ describe('calculator', () => {
     await s.execute('xa11y: closeWindow');
     await new Promise((r) => setTimeout(r, 500));
     await rejectsWith(s.click(seven), 'stale element reference');
+  });
+});
+
+describe('app lifecycle', () => {
+  let s: Session;
+
+  before(async () => {
+    s = await open(fx.calculator.app);
+  });
+
+  after(async () => {
+    await s.delete().catch(() => undefined);
+  });
+
+  test('activating the running app keeps the same process', { todo: fx.platformName === 'Mac' && 'plan 009: activateApp starts a second instance when given a bundle id' }, async () => {
+    const before = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    await s.activateApp(fx.calculator.app);
+    await s.activateApp(fx.calculator.app);
+    const after = await s.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    assert.equal(after.pid, before.pid);
+    const apps = await s.execute<Array<{ name: string }>>('xa11y: listApps');
+    assert.equal(apps.filter((a) => a.name === before.name).length, 1);
+  });
+
+  test('terminating another app id leaves the Session app running', { todo: 'plan 009: terminateApp ignores appId' }, async () => {
+    assert.equal(await s.terminateApp('no.such.app'), false);
+    assert.ok(await s.find('xpath', fx.calculator.buttons['7']));
   });
 });
 
