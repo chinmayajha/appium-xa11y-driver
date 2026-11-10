@@ -218,6 +218,19 @@ live_display() {
   case "$(cat "/proc/$pid/comm" 2>/dev/null)" in X*) return 0 ;; *) return 1 ;; esac
 }
 
+# The socket can exist before Xvfb accepts clients, and then openbox exits at once.
+start_wm() {
+  local _ pid
+  pgrep -u "$(id -u)" -x openbox >/dev/null && return
+  for _ in $(seq 20); do
+    DISPLAY="$1" openbox >/dev/null 2>&1 &
+    pid=$!
+    sleep 0.5
+    kill -0 "$pid" 2>/dev/null && return
+  done
+  die "openbox did not start on $1"
+}
+
 start_xvfb() {
   local display=:99 auth="$XA11Y_HOME/Xauthority"
   if [ ! -s "$auth" ]; then
@@ -229,7 +242,7 @@ start_xvfb() {
     Xvfb "$display" -screen 0 "${SIZE}x24" -auth "$auth" -nolisten tcp >/dev/null 2>&1 &
     wait_for_socket "$display" || die "Xvfb did not start on $display"
   fi
-  DISPLAY="$display" openbox >/dev/null 2>&1 &
+  start_wm "$display"
   DISPLAY="$display"
 }
 
