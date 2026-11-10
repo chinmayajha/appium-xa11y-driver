@@ -17,7 +17,7 @@ const fixtures: Record<string, Fixtures> = {
   mac: {
     platformName: 'Mac',
     primary: '',
-    editor: { app: 'com.apple.TextEdit', field: '//text_area', roles: ['text_area'], lineStart: 'primary+left', siblingBefore: 'primary+ctrl+r' },
+    editor: { app: 'com.apple.TextEdit', field: '//text_area', roles: ['text_area'], lineStart: 'primary+left', siblingBefore: 'primary+r' },
     calculator: {
       app: 'com.apple.calculator',
       buttons: { C: "//button[@id='AllClear' or @id='Clear']", 7: "//button[@id='Seven']", 5: "//button[@id='Five']", '+': "//button[@id='Add']", '=': "//button[@id='Equals']" },
