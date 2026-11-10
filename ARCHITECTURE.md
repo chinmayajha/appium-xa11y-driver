@@ -51,7 +51,7 @@ The seam has real adapters for macOS and Linux and a Windows adapter that report
 |---|---|---|---|
 | `launch` | `open -n -a`, then the newest pid of the bundle executable | spawn, detached | spawn, detached |
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | not yet |
-| `activate` | xa11y window activate | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
+| `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | not yet |
 | `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, post a flags change without Fn and keypad | xa11y key tap | xa11y key tap |
 | `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | not yet |

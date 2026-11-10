@@ -88,7 +88,14 @@ export const mac: Platform = {
   async frontmostName() {
     return (await frontmost())?.name;
   },
-  activate: activateWindow,
+  async activate(app, window) {
+    // AXRaise can fail after AXFrontmost already brought the app to the front (Calculator on macOS 26).
+    await activateWindow(app, window).catch(async (e) => {
+      if ((await frontmost())?.pid !== app.pid) {
+        throw e;
+      }
+    });
+  },
   async wheel(input, at, dx, dy) {
     await input.moveTo([at.x, at.y]);
     await postPixelScroll(at, dx, dy);
