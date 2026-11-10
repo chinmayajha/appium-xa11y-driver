@@ -148,7 +148,7 @@ Install-Appium
 Install-Driver
 Write-HostScript
 if ($NoService) {
-  Log "Installed. Start Appium with: powershell -File `"$Root\host.ps1`""
+  Log "Installed. Start Appium with: powershell -ExecutionPolicy Bypass -File `"$Root\host.ps1`""
 } else {
   Register-Service
 }
