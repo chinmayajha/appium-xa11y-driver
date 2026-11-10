@@ -1,7 +1,7 @@
-import type { InputSim, MouseButtonName } from '@crowecawcaw/xa11y';
+import type { InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
-import type { Platform, Point } from './platforms';
+import type { Platform, Point } from '../platforms';
 
 export type { Point };
 
@@ -33,7 +33,10 @@ export interface ActionContext {
   platform: Platform;
   input: InputSim;
   state: InputState;
+  /** The Frontmost guard, called before each Raw input event. */
+  guard: () => Promise<void>;
   elementCenter: (elementId: string) => Promise<Point>;
+  desktop: () => Promise<Rect>;
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
@@ -46,22 +49,23 @@ function heldModifiers(state: InputState): string[] {
   return [...state.keys].filter((k) => MODIFIERS.has(k));
 }
 
-async function resolvePoint(ctx: ActionContext, a: Action): Promise<Point> {
-  const x = a.x ?? 0;
-  const y = a.y ?? 0;
-  const origin = a.origin ?? 'viewport';
+async function originOf(ctx: ActionContext, origin: unknown): Promise<Point> {
   if (origin === 'viewport') {
-    return { x, y };
+    return { x: 0, y: 0 };
   }
   if (origin === 'pointer') {
-    return { x: ctx.state.pointer.x + x, y: ctx.state.pointer.y + y };
+    return ctx.state.pointer;
   }
-  const id = typeof origin === 'object' ? Object.values(origin)[0] : undefined;
-  if (!id) {
+  const id = origin && typeof origin === 'object' ? Object.values(origin)[0] : undefined;
+  if (typeof id !== 'string') {
     throw new errors.InvalidArgumentError(`Unknown pointer origin ${JSON.stringify(origin)}`);
   }
-  const c = await ctx.elementCenter(id);
-  return { x: c.x + x, y: c.y + y };
+  return ctx.elementCenter(id);
+}
+
+async function resolvePoint(ctx: ActionContext, a: Action): Promise<Point> {
+  const o = await originOf(ctx, a.origin ?? 'viewport');
+  return { x: o.x + (a.x ?? 0), y: o.y + (a.y ?? 0) };
 }
 
 function buttonOf(a: Action): MouseButtonName {
@@ -80,7 +84,12 @@ type Handler = (ctx: ActionContext, a: Action, next?: Action) => Promise<boolean
 
 const ACTIONS: Record<string, Handler> = {
   async pointerMove(ctx, a) {
-    ctx.state.pointer = await resolvePoint(ctx, a);
+    const to = await resolvePoint(ctx, a);
+    const d = await ctx.desktop();
+    if (to.x < d.x || to.y < d.y || to.x >= d.x + d.width || to.y >= d.y + d.height) {
+      throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
+    }
+    ctx.state.pointer = to;
     await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
     return false;
   },
@@ -133,6 +142,15 @@ export async function pressChord(platform: Platform, input: InputSim, key: strin
   }
 }
 
+async function guarded(ctx: ActionContext, a: Action, next?: Action): Promise<boolean> {
+  const handler = ACTIONS[a.type];
+  if (!handler) {
+    return false;
+  }
+  await ctx.guard();
+  return handler(ctx, a, next);
+}
+
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
   const cursors = sequences.map(() => 0);
   const ticks = Math.max(0, ...sequences.map((s) => s.actions.length));
@@ -145,7 +163,7 @@ export async function perform(ctx: ActionContext, sequences: ActionSequence[]): 
       }
       if (a.type === 'pause') {
         pause = Math.max(pause, a.duration ?? 0);
-      } else if (await ACTIONS[a.type]?.(ctx, a, seq.actions[cursors[i] + 1])) {
+      } else if (await guarded(ctx, a, seq.actions[cursors[i] + 1])) {
         cursors[i]++;
       }
       cursors[i]++;

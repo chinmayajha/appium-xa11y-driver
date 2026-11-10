@@ -2,8 +2,9 @@ import { execFile } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { keyUps } from './common';
+import { activateWindow, keyUps } from './common';
 import { postPixelScroll, waitForModifierRelease } from './mac-events';
 import type { Platform } from './platform';
 
@@ -60,6 +61,10 @@ async function newestPid(executable: string, before: Set<number>, timeoutMs: num
   throw new errors.SessionNotCreatedError(`'${executable}' did not start within ${timeoutMs} ms`);
 }
 
+async function frontmost(): Promise<App | undefined> {
+  return App.foreground({ timeout: 0 }).catch(() => undefined);
+}
+
 export const mac: Platform = {
   os: 'macos',
   primaryModifier: 'Meta',
@@ -73,6 +78,13 @@ export const mac: Platform = {
     await run('open', ['-n', '-a', bundle, ...(args.length ? ['--args', ...args] : [])]);
     return newestPid(executable, before, timeoutMs);
   },
+  async isFrontmost(app) {
+    return (await frontmost())?.pid === app.pid;
+  },
+  async frontmostName() {
+    return (await frontmost())?.name;
+  },
+  activate: activateWindow,
   async wheel(input, at, dx, dy) {
     await input.moveTo([at.x, at.y]);
     await postPixelScroll(at, dx, dy);
@@ -81,4 +93,6 @@ export const mac: Platform = {
     await keyUps(input, keys);
     await waitForModifierRelease(keys);
   },
+  elementRect: async (el) => el.bounds,
+  stableId: (el) => el.stableId ?? '',
 };

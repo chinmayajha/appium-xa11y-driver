@@ -1,0 +1,80 @@
+import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
+import { activateWindow, keyUps, lineWheel, spawnApp } from '../common';
+import type { Platform } from '../platform';
+import { isGtk4, windowExtents } from './atspi';
+import { frameExtents } from './x11';
+
+const NO_POSITION = -2147483648;
+// The shadow changes when the window gains or loses focus, so one read serves only one burst of lookups.
+const FRAME_TTL_MS = 500;
+const frames = new Map<string, { at: number; origin: Promise<Rect | null> }>();
+
+async function topLevelOf(el: Element): Promise<Element> {
+  let node = el;
+  for (let parent = await el.parent(); parent && parent.role !== 'application'; parent = await parent.parent()) {
+    node = parent;
+  }
+  return node;
+}
+
+/** Where the window's visible frame starts: its X11 position plus the shadow that GTK 4 draws inside it. */
+function frameOrigin(top: Element): Promise<Rect | null> {
+  const b = top.bounds;
+  if (!b || top.pid === null) {
+    return Promise.resolve(null);
+  }
+  const key = `${top.pid}|${top.name}|${b.x},${b.y},${b.width},${b.height}`;
+  const known = frames.get(key);
+  if (known && Date.now() - known.at < FRAME_TTL_MS) {
+    return known.origin;
+  }
+  const origin = frameExtents(top.pid, top.name ?? '')
+    .then((f) => (f ? { x: b.x + f.left, y: b.y + f.top, width: b.width - f.left - f.right, height: b.height - f.top - f.bottom } : null))
+    .catch(() => null);
+  frames.set(key, { at: Date.now(), origin });
+  return origin;
+}
+
+async function gtk4Rect(el: Element, topLevel?: Element): Promise<Rect | null> {
+  const top = el.role === 'window' ? el : topLevel ?? await topLevelOf(el);
+  const origin = top ? await frameOrigin(top) : null;
+  if (!origin || el === top) {
+    return origin;
+  }
+  const inWindow = await windowExtents(el);
+  return { ...inWindow, x: origin.x + inWindow.x, y: origin.y + inWindow.y };
+}
+
+async function elementRect(el: Element, topLevel?: Element): Promise<Rect | null> {
+  const b = el.bounds;
+  if (!b || b.x === NO_POSITION || b.y === NO_POSITION) {
+    return null;
+  }
+  return (await isGtk4(String(el.raw.bus_name))) ? gtk4Rect(el, topLevel) : b;
+}
+
+async function hasActiveWindow(app: App): Promise<boolean> {
+  return (await app.windows().catch(() => [])).some((w) => w.active);
+}
+
+export const linux: Platform = {
+  os: 'linux',
+  primaryModifier: 'Ctrl',
+  permissionHint: 'Run Appium inside the Desktop session, with its DISPLAY, D-Bus session bus and AT-SPI bus (see hosts/linux/setup.sh).',
+  launch: async (app, args) => spawnApp(app, args),
+  isFrontmost: hasActiveWindow,
+  async frontmostName() {
+    for (const app of await App.list().catch(() => [])) {
+      if (await hasActiveWindow(app)) {
+        return app.name;
+      }
+    }
+    return undefined;
+  },
+  activate: activateWindow,
+  wheel: lineWheel,
+  releaseKeys: keyUps,
+  elementRect,
+  // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
+  stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),
+};

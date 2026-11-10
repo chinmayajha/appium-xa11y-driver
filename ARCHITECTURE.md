@@ -30,30 +30,34 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | Module | Interface | Hides |
 |---|---|---|
 | `Xa11yDriver` (`driver.ts`) | Appium `BaseDriver` commands and `xa11y:` execute methods | Only translation: WebDriver arguments to module calls, module errors to WebDriver errors |
-| `Target` | `launch(app, args)`, `attach({ name, pid })`, `switchTo(...)`, `app`, `terminateLaunched()` | Process start per OS, attach by pid, the list of launched pids, the clean-up when a session fails to start |
-| `Tree` | `source()`, `find(strategy, selector, context?)`, `element(handle)`, `rect(element)` | The Page source contract, XPath over the snapshot, element handles and staleness, bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
+| `Target` | `launch(app, args)`, `attach({ name, pid })`, `activate()`, `window(name?)`, `list()`, `app`, `terminateLaunched()` | Process start per OS, attach by pid or name, the wait for the first window, the list of launched pids |
+| `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `element(id)`, `rect(id)`, `visibleRect(id)`, `attribute(id, name)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and staleness, bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `frontmostPid`, `activate`, `wheel`, `releaseKeys`, `elementRect` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `releaseKeys`, `elementRect`, `stableId` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
-- **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it.
+- **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. The guard only checks: it never activates a window. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
+- **A pointer move outside the Desktop fails** with `move target out of bounds`. The driver does not clamp it to the screen edge.
 - **Coordinates exist only as Desktop coordinates.** `Tree.rect`, pointer input and `Screen` use the same space. Conversion happens once, in `Tree` (bounds) and `Screen` (images).
 - **The Page source is a contract.** Tags are xa11y roles. Attributes: `type`, `name`, `value`, `label`, `id`, `enabled`, `visible`, `focused`, `selected`, `checked`, `clickable`, `checkable`, `editable`, `scrollable`, `x`, `y`, `width`, `height`. An element with no reliable bounds has no `x`/`y`/`width`/`height` and `visible="false"`. Changes are breaking changes for clients.
-- **`Platform` is the only place that branches on the OS.** No `process.platform` outside `platforms/`.
+- **`Platform` is the only place that branches on the OS.** In `src/`, no `process.platform` outside `platforms/`.
 
 ## Platform seam
 
-The seam has real adapters for macOS and Linux and a Windows adapter that reports "not supported yet on win32: <call>" for anything not proven on Windows. An adapter never falls back to another OS's behaviour.
+The seam has real adapters for macOS and Linux and a Windows adapter that reports "Not supported yet on windows: <call>" for anything not proven on Windows. An adapter never falls back to another OS's behaviour.
 
 | Call | macOS | Linux (X11) | Windows |
 |---|---|---|---|
 | `launch` | `open -n -a`, then the newest pid of the bundle executable | spawn, detached | spawn, detached |
-| `frontmostPid` | xa11y foreground app | `_NET_ACTIVE_WINDOW` → `_NET_WM_PID` | not yet |
-| `activate` | xa11y window activate | `_NET_ACTIVE_WINDOW` client message | not yet |
-| `wheel` | continuous pixel scroll events | xa11y wheel | not yet |
+| `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | not yet |
+| `activate` | xa11y window activate | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | not yet |
+| `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | not yet |
 | `releaseKeys` | wait until the event source reports the modifiers up | xa11y key up | not yet |
-| `elementRect` | xa11y bounds | xa11y bounds; GTK4 children made absolute; `INT_MIN` sentinels → none | xa11y bounds |
+| `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |
+| `stableId` | AX identifier | none (xa11y gives the AT-SPI object path, which changes each time the app starts) | AutomationId |
+
+**GTK 4 on X11.** GTK 4 gives `(0, 0)` as the screen position of every element. Its window-relative extents are correct, but relative to the visible frame of the window, not to the X11 window. GTK 4 draws its shadow inside the X11 window and announces its size in `_GTK_FRAME_EXTENTS`, and the size changes when the window gains or loses focus. So the Linux adapter calculates: element = X11 window position + `_GTK_FRAME_EXTENTS` (left, top) + AT-SPI `GetExtents(WINDOW)`. It reads the extents through its own small AT-SPI and X11 clients (`platforms/linux/`), with no `xprop` or `xdotool`. It finds the X11 window by pid and title. When no window or more than one window matches, the element has no bounds. On Wayland there is no global position, so GTK 4 elements have no bounds.
 
 ## Tests
 
@@ -73,11 +77,11 @@ One setup script per OS prepares a Host: [`hosts/`](hosts/). It installs Appium 
 | CI | `xa11y/setup-a11y`, then the script | `127.0.0.1:4723` on the runner |
 | Managed VM | the VM's own agent starts the same Appium and driver | its WebDriver hub |
 
-**Where the Client runs.** Authoring (optics live, NL mode, MCP) runs on the user's machine through the tunnel. Jobs and CI run optics on the Host. On instabox the same suite took 18.1 s through the tunnel and 6.7 s on the Host.
+**Where the Client runs.** Authoring (optics live, NL mode, MCP) runs on the user's machine through the tunnel. Jobs and CI run optics on the Host. On instabox the conformance suite took 77.7 s through the tunnel and 18.4 s on the Host.
 
 ## Adding an operating system
 
-1. Write `src/platforms/<os>.ts` and register it in `src/platforms/index.ts`.
+1. Write `src/platforms/<os>.ts` (or a `src/platforms/<os>/` folder) and register it in `src/platforms/index.ts`.
 2. Add the OS's fixture apps to the conformance suite.
 3. Write `hosts/<os>/setup.sh`.
 4. In optics, add a `PlatformProfile` for it (data only).

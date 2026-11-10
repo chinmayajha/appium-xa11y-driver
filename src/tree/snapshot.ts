@@ -1,13 +1,23 @@
 import { DOMImplementation, XMLSerializer } from '@xmldom/xmldom';
 import type { Element as XmlElement, Document as XmlDocument } from '@xmldom/xmldom';
-import type { Element } from '@crowecawcaw/xa11y';
+import type { Element, Rect } from '@crowecawcaw/xa11y';
 
 export type Path = number[];
 
 export interface Node {
   el: Element;
   path: Path;
+  /** The top-level window that contains the element, when the walk knows it. */
+  top?: Element;
 }
+
+/** What the Platform adds to an element: bounds in Desktop coordinates and the Stable id. */
+export interface Placement {
+  rect: Rect | null;
+  id: string;
+}
+
+export type Place = (node: Node) => Promise<Placement>;
 
 export interface Snapshot {
   doc: XmlDocument;
@@ -51,26 +61,25 @@ function actionFlags(el: Element, role: string, type: string): Record<string, st
   };
 }
 
-function boundsOf(el: Element): Record<string, string> {
-  const b = el.bounds;
-  return b ? Object.fromEntries((['x', 'y', 'width', 'height'] as const).map((k) => [k, String(Math.round(b[k]))])) : {};
+function boundsOf(rect: Rect | null): Record<string, string> {
+  return rect ? Object.fromEntries((['x', 'y', 'width', 'height'] as const).map((k) => [k, String(Math.round(rect[k]))])) : {};
 }
 
-export function attributesOf(el: Element): Record<string, string> {
+export function attributesOf(el: Element, { rect, id }: Placement): Record<string, string> {
   const type = platformRole(el);
   return {
     type,
     name: el.name ?? '',
     value: el.value ?? '',
     label: el.description ?? '',
-    id: el.stableId ?? '',
+    id,
     enabled: String(el.enabled),
-    visible: String(el.visible),
+    visible: String(el.visible && rect !== null),
     focused: String(el.focused),
     selected: String(el.selected),
-    ...(el.checked === null ? {} : { checked: String(el.checked === 'on') }),
+    checked: String(el.checked === 'on'),
     ...actionFlags(el, el.role, type),
-    ...boundsOf(el),
+    ...boundsOf(rect),
   };
 }
 
@@ -78,24 +87,36 @@ function tagFor(role: string): string {
   return /^[A-Za-z_][\w-]*$/.test(role) ? role : 'unknown';
 }
 
-async function fill(doc: XmlDocument, xml: XmlElement, node: Node, nodes: Map<XmlElement, Node>, depthLimit: number): Promise<void> {
-  for (const [k, v] of Object.entries(attributesOf(node.el))) {
-    xml.setAttribute(k, v.replace(XML_INVALID, ''));
+function topFor(parent: Node, child: Element): Element | undefined {
+  if (parent.path.length === 0) {
+    return child;
   }
-  nodes.set(xml, node);
-  if (node.path.length >= depthLimit) {
-    return;
-  }
-  const kids = (await node.el.children()).map((el, i) => ({ el, path: [...node.path, i] }));
-  const xmlKids = kids.map((kid) => xml.appendChild(doc.createElement(tagFor(kid.el.role))) as XmlElement);
-  await Promise.all(kids.map((kid, i) => fill(doc, xmlKids[i], kid, nodes, depthLimit)));
+  return parent.top ?? (parent.path.length === 1 ? parent.el : undefined);
 }
 
-export async function snapshot(root: Node, maxDepth = Infinity): Promise<Snapshot> {
+interface Walk {
+  doc: XmlDocument;
+  nodes: Map<XmlElement, Node>;
+  place: Place;
+}
+
+// macOS gives an app with no window itself as its only child, which would make the walk endless.
+async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
+  for (const [k, v] of Object.entries(attributesOf(node.el, await walk.place(node)))) {
+    xml.setAttribute(k, v.replace(XML_INVALID, ''));
+  }
+  walk.nodes.set(xml, node);
+  const kids = (await node.el.children())
+    .map((el, i) => ({ el, path: [...node.path, i], top: topFor(node, el) }))
+    .filter((kid) => kid.el.role !== 'application');
+  const xmlKids = kids.map((kid) => xml.appendChild(walk.doc.createElement(tagFor(kid.el.role))) as XmlElement);
+  await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid)));
+}
+
+export async function snapshot(root: Node, place: Place): Promise<Snapshot> {
   const doc = new DOMImplementation().createDocument(null, tagFor(root.el.role), null);
-  const xml = doc.documentElement as XmlElement;
   const nodes = new Map<XmlElement, Node>();
-  await fill(doc, xml, root, nodes, root.path.length + maxDepth);
+  await fill({ doc, nodes, place }, doc.documentElement as XmlElement, root);
   return { doc, nodes };
 }
 

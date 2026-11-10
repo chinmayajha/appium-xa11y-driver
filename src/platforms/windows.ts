@@ -1,5 +1,9 @@
-import { keyUps, lineWheel, spawnApp } from './common';
+import { spawnApp } from './common';
 import { notSupportedYet, type Platform } from './platform';
+
+const unproven = (call: string) => async (): Promise<never> => {
+  throw notSupportedYet('windows', call);
+};
 
 export const windows: Platform = {
   os: 'windows',
@@ -11,6 +15,11 @@ export const windows: Platform = {
     }
     return spawnApp(app, args);
   },
-  wheel: lineWheel,
-  releaseKeys: keyUps,
+  isFrontmost: unproven('the Frontmost app check for raw input'),
+  frontmostName: async () => undefined,
+  activate: unproven('window activation'),
+  wheel: unproven('wheel input'),
+  releaseKeys: unproven('key release'),
+  elementRect: async (el) => el.bounds,
+  stableId: (el) => el.stableId ?? '',
 };

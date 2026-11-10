@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { InputSim } from '@crowecawcaw/xa11y';
+import type { App, Element, InputSim } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import type { Point } from './platform';
 
@@ -26,4 +26,17 @@ export async function keyUps(input: InputSim, keys: string[]): Promise<void> {
   for (const k of keys) {
     await input.keyUp(k);
   }
+}
+
+export async function mainWindow(app: App): Promise<Element | undefined> {
+  const windows = await app.windows();
+  return windows.find((w) => w.active) ?? windows[0];
+}
+
+export async function activateWindow(app: App): Promise<void> {
+  const win = await mainWindow(app);
+  if (!win) {
+    throw new errors.NoSuchWindowError(`${app.name} has no window to activate`);
+  }
+  await win.activate();
 }
