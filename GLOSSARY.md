@@ -37,7 +37,7 @@ The XML form of the Session app's accessibility tree that this driver serves. It
 _Avoid_: DOM, hierarchy, dump
 
 **Stable id**:
-The id an app gives an element that does not change between runs (AutomationId on Windows, AXIdentifier on macOS, the accessible id on Linux). It is the `id` attribute.
+The id an app gives an element that does not change between runs (AutomationId on Windows, AXIdentifier on macOS). It is the `id` attribute. Linux has no Stable id yet: xa11y gives the AT-SPI object path, which changes each time the app starts ([docs/xa11y-gaps.md](docs/xa11y-gaps.md)).
 _Avoid_: resource-id, accessibility id
 
 **Desktop coordinates**:
