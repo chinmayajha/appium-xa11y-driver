@@ -58,8 +58,6 @@ Sessions; find one or more elements; click, send keys, clear, text, attribute, p
 | `class name` | the role (the tag), for example `button` |
 | `-xa11y selector` | an [xa11y selector](https://xa11y.dev/reference/selectors/), for example `button[name='OK']` |
 
-`GET /window/rect` gives the Desktop: its size is the size of a screenshot. `POST /window/rect` moves and resizes the main window of the Session app and gives its new rect.
-
 ### `xa11y:` execute methods
 
 | Method | Arguments |
@@ -100,6 +98,21 @@ On macOS the driver sends wheel actions as continuous pixel scroll events, the s
 
 After a pointer button is released, the driver waits until 50 ms have passed before the next pointer move or press. GTK 4 loses a click that comes in the same turn of its main loop as the previous release. The wait does not change a double click.
 
+## Command notes
+
+Some commands are different from other Appium drivers.
+
+| Command | Behaviour |
+|---|---|
+| `GET /window/rect` | The rect of the Desktop, not of a window. Its size is the size of a screenshot. |
+| `POST /window/rect` | Moves and resizes the main window of the Session app, and gives its new rect. |
+| `GET /element/:id/rect` | `{x: 0, y: 0, width: 0, height: 0}` for an element with no reliable bounds. |
+| `GET /element/:id/property/:name` | The same as `GET /element/:id/attribute/:name`. |
+| `GET /element/:id/text` | The value of the element. If it is empty, the name. If that is empty, the description. |
+| `activateApp` | Attaches the session to a running app with this name and brings it to the front. If no app has this name, it starts the app, as `xa11y: launch` does. Changes in plan 009. |
+| `terminateApp` | Stops the apps that the session started, and gives `true` if there was one. It does not use the app id. Changes in plan 009. |
+| `execute` | Only the `xa11y:` methods. Other scripts fail with `unknown method`. |
+
 ## Surfaces
 
 | Surface | Prepare the Host | The Client connects to |
@@ -127,7 +140,7 @@ The conformance suite is the test of the driver. It talks WebDriver to a running
 npm run conformance -- --url http://127.0.0.1:4723
 ```
 
-Add `--os linux`, `--os mac` or `--os windows` when the Client and the Host have different operating systems, for example through a tunnel. The suite uses no mocks.
+Add `--os linux`, `--os mac` or `--os windows` when the Client and the Host have different operating systems, for example through a tunnel. The suite uses no mocks. [CONTRIBUTING.md](CONTRIBUTING.md) has the first run for each Host.
 
 ## Adding an OS
 

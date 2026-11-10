@@ -30,10 +30,10 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | Module | Interface | Hides |
 |---|---|---|
 | `Xa11yDriver` (`driver.ts`) | Appium `BaseDriver` commands and `xa11y:` execute methods | Only translation: WebDriver arguments to module calls, module errors to WebDriver errors |
-| `Target` | `launch(app, args)`, `attach({ name, pid })`, `activate()`, `window(name?)`, `list()`, `app`, `terminateLaunched()` | Process start per OS, attach by pid or name, the wait for the first window, the list of launched pids |
-| `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `element(id)`, `rect(id)`, `visibleRect(id)`, `attribute(id, name)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and staleness, bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
-| `Input` | `click(element)`, `type(text, element?)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
-| `Screen` | `capture()`, `capture(rect)` | Scaling to Desktop coordinates; element and region images cut from one full capture |
+| `Target` | `launch(app, args)`, `attach({ name, pid })`, `activate()`, `window(name?)`, `list()`, `app`, `terminateLaunched()`, `detach()` | Process start per OS, attach by pid or name, the wait for the first window, the list of launched pids |
+| `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `windowRect()`, `forget()` | The Page source contract, XPath over the snapshot, element handles and staleness, bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
+| `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
+| `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
 | `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `releaseKeys`, `elementRect`, `stableId` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
@@ -74,10 +74,11 @@ One setup script per OS prepares a Host: [`hosts/`](hosts/). It installs Appium 
 | This machine | `hosts/<os>/setup.sh` | `http://127.0.0.1:4723` |
 | Local VM, cloud machine | the same script in the VM | SSH tunnel to `127.0.0.1:4723` |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
-| CI | `xa11y/setup-a11y`, then the script | `127.0.0.1:4723` on the runner |
+| Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`: the image runs the Linux script | `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux`, then `http://127.0.0.1:4723` |
+| CI | Linux: the script in a `debian:13` container. macOS: `xa11y/setup-a11y`, then the script. Windows: Appium from npm, and the driver from the checkout. | `127.0.0.1:4723` on the runner |
 | Managed VM | the VM's own agent starts the same Appium and driver | its WebDriver hub |
 
-**Where the Client runs.** Authoring (optics live, NL mode, MCP) runs on the user's machine through the tunnel. Jobs and CI run optics on the Host. On instabox the conformance suite took 77.7 s through the tunnel and 18.4 s on the Host.
+**Where the Client runs.** Authoring (optics live, NL mode, MCP) runs on the user's machine through the tunnel. Jobs and CI run optics on the Host. On instabox the conformance suite took 77.0 s through the tunnel and 18.0 s on the Host.
 
 ## Adding an operating system
 
