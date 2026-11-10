@@ -146,13 +146,15 @@ const ACTIONS: Record<string, Handler> = {
 
 // xa11y's chord does not wait for its modifier release, so a key sent right after it can still carry the modifiers.
 export async function pressChord(platform: Platform, input: InputSim, key: string, held: string[]): Promise<void> {
-  for (const m of held) {
-    await input.keyDown(m);
-  }
+  const down: string[] = [];
   try {
+    for (const m of held) {
+      await input.keyDown(m);
+      down.push(m);
+    }
     await input.press(key);
   } finally {
-    await platform.releaseKeys(input, [...held].reverse());
+    await platform.releaseKeys(input, down.reverse());
   }
 }
 
@@ -188,11 +190,26 @@ export async function perform(ctx: ActionContext, sequences: ActionSequence[]): 
   }
 }
 
-export async function release(ctx: ActionContext): Promise<void> {
-  for (const button of ctx.state.buttons) {
-    await ctx.input.mouseUp(button);
+async function attempt(failures: unknown[], step: () => Promise<void>): Promise<void> {
+  try {
+    await step();
+  } catch (e) {
+    failures.push(e);
   }
-  await ctx.platform.releaseKeys(ctx.input, [...ctx.state.keys]);
-  ctx.state.buttons.clear();
-  ctx.state.keys.clear();
+}
+
+export async function release(ctx: ActionContext): Promise<void> {
+  const failures: unknown[] = [];
+  try {
+    for (const button of ctx.state.buttons) {
+      await attempt(failures, () => ctx.input.mouseUp(button));
+    }
+    await attempt(failures, () => ctx.platform.releaseKeys(ctx.input, [...ctx.state.keys]));
+  } finally {
+    ctx.state.buttons.clear();
+    ctx.state.keys.clear();
+  }
+  if (failures.length) {
+    throw failures[0];
+  }
 }
