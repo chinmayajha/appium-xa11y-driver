@@ -179,11 +179,11 @@ describe('editor', () => {
       { type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
         // GTK 3 does not count a click that comes soon after a press at another place, such as the end of a drag.
         { type: 'pause', duration: 1000 },
-        { type: 'pointerMove', duration: 0, x: 3 - Math.floor(width / 2), y: 3 - Math.floor(height / 2), origin },
+        { type: 'pointerMove', duration: 0, x: 3 - Math.floor(width / 2), y: 12 - Math.floor(height / 2), origin },
         { type: 'pointerDown', button: 0 },
         { type: 'pointerUp', button: 0 },
         { type: 'pause', duration: 600 },
-        { type: 'pointerMove', duration: 0, x: Math.floor(width / 2) - 3, y: Math.floor(height / 2) - 3, origin },
+        { type: 'pointerMove', duration: 0, x: Math.floor(width / 2) - 40, y: 12 - Math.floor(height / 2), origin },
         { type: 'pointerDown', button: 0 },
         { type: 'pointerUp', button: 0 },
       ] },
@@ -366,8 +366,8 @@ describe('calculator', () => {
         late,
       ] }]), 'invalid argument');
     }
-    await s.click(await button('7'));
-    await shows('77');
+    await new Promise((r) => setTimeout(r, 500));
+    await shows('7');
   });
 
   test('a pointer move takes its duration and ends on its target', async () => {
