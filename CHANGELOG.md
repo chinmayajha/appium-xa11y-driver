@@ -15,7 +15,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ### Fixed
 
-- A W3C `pointerMove` moves the pointer in steps over its `duration`, and a move with a button down has 5 steps or more. Before, the pointer jumped to the end point, and some apps did not see a drag.
+- A W3C `pointerMove` moves the pointer along its line over its `duration`: each event goes to the point for the time since the move started. A move with a button down has 5 events or more, so on a slow platform it can take longer than its `duration`. A move ignores `duration` and jumps when the driver does not know where the OS pointer is: the first move of a session, and a move after a wheel action or after an element click that the driver sends as Raw input. Before, the pointer jumped to the end point, and some apps did not see a drag.
 - Two W3C click pairs at one place, with nothing between them, are one double-click. Before, they were two single clicks, which macOS does not take as a double-click.
 - An unknown W3C action type is an `invalid argument` error, and `pointerCancel` is an `unsupported operation` error. Before, the driver ignored them.
 - On macOS, a W3C `pointerDown` with no `pointerUp` right after it presses at the pointer, and a move while it is down is a drag. Before, it pressed at `(0, 0)`, on the Apple menu.
