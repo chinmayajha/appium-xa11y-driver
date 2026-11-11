@@ -1,6 +1,6 @@
 # xa11y gaps
 
-These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y, and its status on xa11y `main` at 0c769d5. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
+These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y, and its status on xa11y `main` at 3fd18ef. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
 
 The driver has a workaround for each item. The section [Not xa11y](#not-xa11y) lists the problems that come from other parts.
 
@@ -27,7 +27,7 @@ Expected: add `_GTK_FRAME_EXTENTS` left and top. The 12 px that remain for gnome
 
 ### 2. `stableId` is the AT-SPI object path
 
-**Status on `main`:** by design (the docs say: the D-Bus object path). `AccessibleId` is empty in GTK 3 and GTK 4. Question: [xa11y #684](https://github.com/xa11y/xa11y/issues/684).
+**Status on `main`:** by design (the docs say: the D-Bus object path). `AccessibleId` is empty in GTK 3 and GTK 4. [xa11y #693](https://github.com/xa11y/xa11y/pull/693) documents the `stableId` lifetimes and closes [xa11y #684](https://github.com/xa11y/xa11y/issues/684).
 
 ```js
 const app = await xa11y.App.byName('gnome-calculator');
@@ -60,7 +60,7 @@ Expected: the new screen size after a RandR change. Workaround: restart the proc
 
 ### 5. `typeText` rejects newline and tab
 
-**Status on `main`:** newline is fixed (xa11y #498). Tab still fails. Fix: [xa11y #678](https://github.com/xa11y/xa11y/pull/678).
+**Status on `main`:** fixed. Newline: xa11y #498. Tab: [xa11y #692](https://github.com/xa11y/xa11y/pull/692) (merged, not released), on all three platforms; it includes the Linux commit of #678.
 
 ```js
 xa11y.inputSim().typeText('a\nb');
@@ -202,13 +202,13 @@ Seen: `cab`, and the Notepad status bar stays at `Ln 1, Col 1`. Expected: `abc`,
 
 ### 17. The wheel scrolls up for a positive `dy`
 
-**Status:** open. With 0.15.4 and a 400-line file, `dy=+3` moves mousepad toward the end (0, 176, 352) and Notepad toward the top; `dy=-3` moves Notepad toward the end. The macOS code sends `dy` as Quartz `wheel1`, where positive is up. Issue: [xa11y #688](https://github.com/xa11y/xa11y/issues/688).
+**Status on `main`:** fixed ([xa11y #694](https://github.com/xa11y/xa11y/pull/694), merged, not released): a positive `dy` scrolls toward the end on every platform (from the PR; not tested here). With 0.15.4 and a 400-line file, `dy=+3` moves mousepad toward the end (0, 176, 352) and Notepad toward the top; `dy=-3` moves Notepad toward the end. The macOS code sends `dy` as Quartz `wheel1`, where positive is up. Issue: [xa11y #688](https://github.com/xa11y/xa11y/issues/688).
 
 The docs say: "`dy` positive → content scrolls down". On Linux a positive `dy` scrolls the view down. On Windows, `inputSim().scroll(at, 0, 30)` over Notepad, at the end of 200 lines, moves the value of the vertical scroll bar from 100 to 46. The driver negates `dy` on Windows.
 
 ### 18. `stableId` is the window handle of a Win32 control
 
-**Status:** by design (the docs say: the handle, valid for the life of the window). Notepad's edit control gave `hwnd:0x2801d0`, then `hwnd:0x280196`, with AutomationId `15` both times. Added to the Linux question: [xa11y #684](https://github.com/xa11y/xa11y/issues/684#issuecomment-6777690477).
+**Status on `main`:** fixed ([xa11y #693](https://github.com/xa11y/xa11y/pull/693), merged, not released): a control uses its AutomationId first (from the PR; not tested on Windows). In 0.15.4, Notepad's edit control gave `hwnd:0x2801d0`, then `hwnd:0x280196`, with AutomationId `15` both times. Added to the Linux question: [xa11y #684](https://github.com/xa11y/xa11y/issues/684#issuecomment-6777690477).
 
 ```js
 const app = await xa11y.App.byName('win32calc');
