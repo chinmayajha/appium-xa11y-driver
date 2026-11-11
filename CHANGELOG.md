@@ -4,6 +4,11 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- On macOS, a pointer action reads the Desktop rect from the screens and does not take a screenshot, so it does not need Screen Recording and does not stop when a screenshot does not return (xa11y gap 13).
+- A screenshot that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells what to grant. Before, the command did not return.
+
 ## [0.1.1]
 
 ### Added
@@ -30,8 +35,6 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 - Two W3C click pairs at one place, with nothing between them, are one double-click. Before, they were two single clicks, which macOS does not take as a double-click.
 - An unknown W3C action type is an `invalid argument` error, and `pointerCancel` is an `unsupported operation` error. Before, the driver ignored them.
 - On macOS, a W3C `pointerDown` with no `pointerUp` right after it presses at the pointer, and a move while it is down is a drag. Before, it pressed at `(0, 0)`, on the Apple menu.
-- On macOS, a pointer action and `GET /window/rect` read the Desktop rect from the screens and do not take a screenshot, so they do not need Screen Recording and do not stop when a screenshot does not return (xa11y gap 13).
-- A screenshot that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells what to grant. Before, the command did not return.
 - On Linux, a session starts when `appium:app` is a wrapper that starts the app as a child, an app that detaches itself, or a single-instance app that already runs. For a single-instance app, the driver stops the running instance and starts the app again, so work that is not saved in that instance is lost. Before, the session failed after `appium:launchTimeout`.
 - On Windows, when `appium:app` is a launcher that exits, for example `calc.exe`, the session attaches to the app that the launcher started.
 - On Linux, a session with no `appium:app` and no `appium:appName` attaches to the app with the active window. Before, it attached to the window manager.
