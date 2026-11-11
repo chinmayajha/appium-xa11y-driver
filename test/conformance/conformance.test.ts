@@ -156,12 +156,15 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'hello world');
     const { width, height } = pngSize(await s.screenshot(field));
     const origin = { [ELEMENT]: field };
+    const began = Date.now();
     await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
       { type: 'pointerMove', duration: 0, x: 3 - Math.floor(width / 2), y: 3 - Math.floor(height / 2), origin },
       { type: 'pointerDown', button: 0 },
       { type: 'pointerMove', duration: 300, x: Math.floor(width / 2) - 3, y: Math.floor(height / 2) - 3, origin },
       { type: 'pointerUp', button: 0 },
     ] }]);
+    const took = Date.now() - began;
+    assert.ok(took < 3000, `the drag took ${took} ms`);
     await s.execute('xa11y: typeText', { text: 'X' });
     await eventually(text, (v) => v.trim() === 'X');
   });

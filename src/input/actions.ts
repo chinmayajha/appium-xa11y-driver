@@ -51,10 +51,14 @@ export function newInputState(): InputState {
   return { pointer: { x: 0, y: 0 }, synced: false, buttons: new Set(), keys: new Set(), releasedAt: 0 };
 }
 
+function pause(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function afterRelease(ctx: ActionContext): Promise<void> {
   const wait = ctx.state.releasedAt + ctx.platform.settleAfterReleaseMs - Date.now();
   if (wait > 0) {
-    await new Promise((r) => setTimeout(r, wait));
+    await pause(wait);
   }
 }
 
@@ -104,11 +108,6 @@ async function atPointer(ctx: ActionContext): Promise<void> {
   }
 }
 
-function moveSteps(duration: number, dragging: boolean): number {
-  const timed = Math.ceil(duration / MOVE_STEP_MS);
-  return Math.min(MAX_MOVE_STEPS, Math.max(dragging ? DRAG_MIN_STEPS : 1, timed));
-}
-
 function pairedPointerUp(a: Action, next: Action | undefined): boolean {
   return next?.type === 'pointerUp' && buttonOf(next) === buttonOf(a);
 }
@@ -144,16 +143,19 @@ const ACTIONS: Record<string, Handler> = {
     const to = await onDesktop(ctx, await resolvePoint(ctx, a));
     await afterRelease(ctx);
     const from = ctx.state.pointer;
-    const steps = ctx.state.synced ? moveSteps(a.duration ?? 0, ctx.state.buttons.size > 0) : 1;
-    const wait = steps > 1 ? Math.max(MOVE_STEP_MS, (a.duration ?? 0) / steps) : 0;
-    for (let i = 1; i <= steps; i++) {
+    const duration = ctx.state.synced ? a.duration ?? 0 : 0;
+    const least = ctx.state.synced && ctx.state.buttons.size > 0 ? DRAG_MIN_STEPS : 1;
+    const wait = Math.max(MOVE_STEP_MS, duration / MAX_MOVE_STEPS);
+    const start = Date.now();
+    for (let i = 1, t = 0; t < 1; i++) {
+      if (duration || least > 1) {
+        await pause(wait);
+      }
+      t = Math.min(duration ? (Date.now() - start) / duration : 1, i / least);
       await ctx.guard();
-      ctx.state.pointer = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+      ctx.state.pointer = t < 1 ? { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t } : to;
       await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
       ctx.state.synced = true;
-      if (wait && i < steps) {
-        await new Promise((r) => setTimeout(r, wait));
-      }
     }
     return 0;
   },
@@ -244,21 +246,21 @@ async function performTicks(ctx: ActionContext, sequences: ActionSequence[]): Pr
   const cursors = sequences.map(() => 0);
   const ticks = Math.max(0, ...sequences.map((s) => s.actions.length));
   for (let tick = 0; tick < ticks; tick++) {
-    let pause = 0;
+    let idle = 0;
     for (const [i, seq] of sequences.entries()) {
       const a = seq.actions[cursors[i]];
       if (!a) {
         continue;
       }
       if (a.type === 'pause') {
-        pause = Math.max(pause, a.duration ?? 0);
+        idle = Math.max(idle, a.duration ?? 0);
       } else {
         cursors[i] += await dispatch(ctx, a, seq.actions.slice(cursors[i] + 1));
       }
       cursors[i]++;
     }
-    if (pause) {
-      await new Promise((r) => setTimeout(r, pause));
+    if (idle) {
+      await pause(idle);
     }
   }
 }
