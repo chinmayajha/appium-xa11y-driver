@@ -14,6 +14,7 @@ const frames = new Map<string, { at: number; origin: Promise<Rect | null> }>();
 
 const LAUNCH_POLL_MS = 100;
 const NO_WINDOW_GRACE_MS = 5000;
+const DETACH_WAIT_MS = 2000;
 
 const pidByName = (name: string) => App.byName(name, { timeout: 0 }).then((app) => app.pid ?? undefined);
 
@@ -78,9 +79,8 @@ async function stopped(pid: number, deadline: number): Promise<boolean> {
   return true;
 }
 
-/** A single-instance app gives the request to its running instance and exits, so that instance is started again. */
-async function launch(app: string, args: string[], timeoutMs: number): Promise<number> {
-  const deadline = Date.now() + timeoutMs;
+/** Starts the app; undefined when the started process exits with code 0 and shows no window. */
+async function start(app: string, args: string[], deadline: number): Promise<number | undefined> {
   const started = await spawnApp(app, args);
   const shown = await shownBy(started.pid, app, deadline);
   if (shown !== undefined) {
@@ -90,20 +90,40 @@ async function launch(app: string, args: string[], timeoutMs: number): Promise<n
   if (code !== 0) {
     throw new errors.SessionNotCreatedError(`'${app}' exited with ${code === null ? 'a signal' : `code ${code}`} before it showed a window`);
   }
-  const running = await runningPid(app);
-  if (running === undefined) {
-    throw new errors.SessionNotCreatedError(`'${app}' exited before it showed a window`);
+  return undefined;
+}
+
+/** The instance of an app that left the process group of its start. */
+async function detached(app: string, deadline: number): Promise<number> {
+  const until = Math.min(deadline, Date.now() + DETACH_WAIT_MS);
+  for (;;) {
+    const pid = await runningPid(app);
+    if (pid !== undefined) {
+      return pid;
+    }
+    if (Date.now() >= until) {
+      throw new errors.SessionNotCreatedError(`'${app}' exited with code 0 before it showed a window, and no instance of it runs`);
+    }
+    await pause(LAUNCH_POLL_MS);
   }
-  quitGroup(running);
-  if (!(await stopped(running, deadline))) {
-    throw new errors.SessionNotCreatedError(`'${app}' took its start request to pid ${running}, and that instance did not stop`);
+}
+
+/** A single-instance app gives the request to its running instance and exits, so that instance is started again. */
+async function launch(app: string, args: string[], timeoutMs: number): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  const before = await runningPid(app);
+  const first = await start(app, args, deadline);
+  if (first !== undefined) {
+    return first;
   }
-  const again = await shownBy((await spawnApp(app, args)).pid, app, deadline);
-  const instance = again ?? await runningPid(app);
-  if (instance === undefined) {
-    throw new errors.SessionNotCreatedError(`'${app}' exited before it showed a window`);
+  if (before === undefined) {
+    return detached(app, deadline);
   }
-  return instance;
+  quitGroup(before);
+  if (!(await stopped(before, deadline))) {
+    throw new errors.SessionNotCreatedError(`'${app}' took its start request to pid ${before}, and that instance did not stop`);
+  }
+  return (await start(app, args, deadline)) ?? detached(app, deadline);
 }
 
 async function topLevelOf(el: Element): Promise<Element> {
