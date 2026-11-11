@@ -39,7 +39,7 @@ export interface ActionContext {
   /** The Frontmost guard, called before each Raw input event except a release. */
   guard: () => Promise<void>;
   elementCenter: (elementId: string) => Promise<Point>;
-  desktop: () => Promise<Rect>;
+  screens: () => Promise<Rect[]>;
 }
 
 const BUTTONS: MouseButtonName[] = ['left', 'middle', 'right'];
@@ -94,9 +94,9 @@ function buttonOf(a: Action): MouseButtonName {
 }
 
 async function onDesktop(ctx: ActionContext, to: Point): Promise<Point> {
-  const d = await ctx.desktop();
-  if (to.x < d.x || to.y < d.y || to.x >= d.x + d.width || to.y >= d.y + d.height) {
-    throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is outside the desktop ${JSON.stringify(d)}`);
+  const screens = await ctx.screens();
+  if (!screens.some((d) => to.x >= d.x && to.y >= d.y && to.x < d.x + d.width && to.y < d.y + d.height)) {
+    throw new errors.MoveTargetOutOfBoundsError(`(${to.x}, ${to.y}) is on no screen of the desktop ${JSON.stringify(screens)}`);
   }
   return to;
 }

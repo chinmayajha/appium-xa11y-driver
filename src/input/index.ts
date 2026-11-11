@@ -106,14 +106,14 @@ export class Input {
   }
 
   private context(): ActionContext {
-    let desktop: Promise<Rect> | undefined;
+    let screens: Promise<Rect[]> | undefined;
     return {
       platform: this.platform,
       input: this.sim,
       state: this.state,
       guard: () => this.guard(),
       elementCenter: (id) => this.tree.visibleCenter(id),
-      desktop: () => (desktop ??= this.platform.desktopBounds?.() ?? this.screen.desktop()),
+      screens: () => (screens ??= this.platform.screens?.() ?? this.screen.desktop().then((d) => [d])),
     };
   }
 
