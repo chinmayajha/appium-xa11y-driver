@@ -1,6 +1,6 @@
 {
   "name": "appium-xa11y-driver",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Appium driver for native desktop apps on macOS, Linux and Windows, built on xa11y",
   "license": "MIT",
   "author": "Chinmay Jha",

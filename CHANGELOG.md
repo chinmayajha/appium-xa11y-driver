@@ -4,6 +4,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+## [0.1.1]
+
 ### Added
 
 - `hosts/windows/setup.ps1` prepares a Windows Host.
