@@ -1,6 +1,6 @@
 # xa11y gaps
 
-These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y, and its status on xa11y `main` at 7820c4a. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
+These are the limits of xa11y that the driver found, with xa11y 0.15.4 (the newest release on npm). Each item has a short repro that you can give to xa11y, and its status on xa11y `main` at 0c769d5. The repros use only built-in apps. In the repros, `xa11y` is `require('@crowecawcaw/xa11y')`.
 
 The driver has a workaround for each item. The section [Not xa11y](#not-xa11y) lists the problems that come from other parts.
 
@@ -38,7 +38,7 @@ Seen: `/org/a11y/atspi/accessible/35` or `/org/gnome/Calculator/a11y/<uuid>`. Th
 
 ### 3. `App.foreground()` names the window manager on X11
 
-**Status on `main`:** open. Fix: [xa11y #680](https://github.com/xa11y/xa11y/pull/680).
+**Status on `main`:** fixed ([xa11y #680](https://github.com/xa11y/xa11y/pull/680), merged, not released).
 
 ```js
 console.log((await xa11y.App.foreground()).name);
@@ -48,7 +48,7 @@ Repro on Xfce with mousepad in front: seen `xfwm4`. Expected: `mousepad`. `windo
 
 ### 4. The screenshot keeps the screen size of the first capture
 
-**Status on `main`:** open. On `main`, a smaller screen gives an X11 `GetImage` error. Fix: [xa11y #679](https://github.com/xa11y/xa11y/pull/679).
+**Status on `main`:** fixed ([xa11y #679](https://github.com/xa11y/xa11y/pull/679), merged, not released).
 
 ```js
 await xa11y.screenshot();                  // 1440 x 900
@@ -99,7 +99,17 @@ A new process works with 0.15.4 too. Workaround: restart the process.
 
 ### 21. Reads through the `App` of an exited process give a platform error
 
-**Status on `main`:** open. Fix: [xa11y #691](https://github.com/xa11y/xa11y/pull/691). After the app process exits, `app.locator(...).count()` and `app.windows()` fail with `Platform: GetChildren failed: ... ServiceUnknown`, not `ElementStale` with `ProcessExited`. A caller cannot tell it from a broken bus. Seen on Debian 13 with a GTK 3 app that was killed.
+**Status on `main`:** fixed ([xa11y #691](https://github.com/xa11y/xa11y/pull/691), merged, not released). In 0.15.4, after the app process exits, `app.locator(...).count()` and `app.windows()` fail with `Platform: GetChildren failed: ... ServiceUnknown`, not `ElementStale` with `ProcessExited`. A caller cannot tell it from a broken bus. Seen on Debian 13 with a GTK 3 app that was killed.
+
+### 24. A multi-click on X11 has no gap between the clicks
+
+**Status on `main`:** open. Fix: [xa11y #697](https://github.com/xa11y/xa11y/pull/697). `click(count=2)` sends the two press/release pairs with no gap. GTK takes some of them as two single clicks: 5 of 60 in Mousepad (GTK 3) and 3 of 60 in a GTK 4 entry, on Debian 13 Xfce. `xdotool` with a 2 ms or 12 ms gap loses 0 of 60.
+
+```js
+await input.click([x, y], { count: 2 });
+```
+
+Expected: the word under the pointer is selected. The driver sends one click at a time, 50 ms apart.
 
 ## macOS
 
@@ -129,7 +139,7 @@ Seen when the screen is locked: `['application']`, and that child also has the a
 
 ### 11. A chord does not wait until the modifiers are up
 
-**Status on `main`:** open, root cause not known. 3 of 100 to 12 of 200 chords fail. A 100 ms wait gives 0 of 100. Issue: [xa11y #681](https://github.com/xa11y/xa11y/issues/681).
+**Status on `main`:** open, root cause not known. In TextEdit, 3 of 100 to 12 of 200 chords fail, and a 100 ms wait gives 0 of 100. In the xa11y Cocoa test app's `Search` field, 174 of 200 fail on `main` 0c769d5 (after xa11y #695), 188 of 200 with 0.15.4, and 1 of 50 with a 500 ms wait. Issue: [xa11y #681](https://github.com/xa11y/xa11y/issues/681).
 
 After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrives with Cmd. The driver sends the key-up events itself and waits until the event source shows no modifiers.
 
@@ -141,7 +151,7 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 ### 20. Keys after a function key get the Fn flag
 
-**Status on `main`:** open. Fix: [xa11y #687](https://github.com/xa11y/xa11y/pull/687). After `press("Home")` or `press("F5")`, the session state keeps Fn, and the next keys copy it: `typeText("ab")` arrived as nothing, 20 of 20 times. The driver clears the flags after each function key.
+**Status on `main`:** fixed ([xa11y #687](https://github.com/xa11y/xa11y/pull/687), merged, not released). #687 made a modifier key-up copy stale flags, so Ctrl stayed held after a Cmd+Ctrl chord; xa11y #695 fixed that. In 0.15.4, after `press("Home")` or `press("F5")`, the session state keeps Fn, and the next keys copy it: `typeText("ab")` arrived as nothing, 20 of 20 times. The driver clears the flags after each function key.
 
 ### 13. A second process cannot take a screenshot
 
@@ -160,6 +170,17 @@ await input.mouseDown('left');
 ```
 
 The press lands on the Apple menu at the top-left corner, and the menu stays open. Expected: a press at `(400, 300)`. With a button held, `moveTo` must post the dragged event type, or the app sees no drag. The driver posts the press, the release and the move while a button is held with CoreGraphics at the pointer.
+
+### 23. `activate` fails on a SwiftUI scene window
+
+**Status on `main`:** open. Fix: [xa11y #696](https://github.com/xa11y/xa11y/pull/696). `activate` sets `AXFrontmost` on the app, then sends `AXRaise` to the window. A window from the SwiftUI scene lifecycle (`WindowGroup`, Calculator on macOS 26) advertises `AXRaise` but answers -25205, also when it is already the main window. With 0.15.4, `activate` on the Calculator window fails 20 of 20 times.
+
+```js
+const app = await xa11y.App.byName('Calculator');
+await (await app.windows())[0].activate();
+```
+
+The driver accepts the error when the app is frontmost after the call.
 
 ## Windows
 
@@ -205,7 +226,7 @@ Seen: `hwnd:0x4013c 137`. The handle changes each time the app starts, and the A
 
 ### 14. Typed errors lose their error code
 
-**Status on `main`:** stale elements are fixed: `XA11Y_ELEMENT_STALE` now gives `ElementStaleError`, a subclass of `SelectorNotMatchedError` (xa11y #661). The error code is still lost. Fix: [xa11y #685](https://github.com/xa11y/xa11y/pull/685).
+**Status on `main`:** stale elements are fixed: `XA11Y_ELEMENT_STALE` now gives `ElementStaleError`, a subclass of `SelectorNotMatchedError` (xa11y #661). The error code is fixed too ([xa11y #685](https://github.com/xa11y/xa11y/pull/685), merged, not released).
 
 `toTypedError` in `index.js` makes the typed error from the `XA11Y_*` code, but it does not keep the code. Some codes share one class, so the caller can tell them apart only by the message text:
 
