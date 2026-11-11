@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { MouseButtonName } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 const run = promisify(execFile);
@@ -42,6 +43,35 @@ function run(argv) {
   }
   return 'clear';
 }`;
+
+// xa11y 0.15.4 posts a held button at (0, 0) and moves a held button as a plain move (docs/xa11y-gaps.md item 22).
+const POST_MOUSE = `ObjC.import('CoreGraphics');
+function run(argv) {
+  const [type, x, y, button, clicks] = argv.map(Number);
+  const e = $.CGEventCreateMouseEvent(null, type, { x, y }, button);
+  if (clicks) {
+    $.CGEventSetIntegerValueField(e, $.kCGMouseEventClickState, clicks);
+  }
+  $.CGEventPost($.kCGHIDEventTap, e);
+}`;
+
+const MOUSE_EVENTS: Record<MouseButtonName, { button: number; down: number; up: number; dragged: number }> = {
+  left: { button: 0, down: 1, up: 2, dragged: 6 },
+  right: { button: 1, down: 3, up: 4, dragged: 7 },
+  middle: { button: 2, down: 25, up: 26, dragged: 27 },
+};
+
+/** Post a mouse button event at the point, which is where the pointer is. */
+export async function postButton(at: { x: number; y: number }, button: MouseButtonName, down: boolean): Promise<void> {
+  const e = MOUSE_EVENTS[button];
+  await jxa(POST_MOUSE, [down ? e.down : e.up, at.x, at.y, e.button, 1]);
+}
+
+/** Post a pointer move with a button held, which apps take as a drag. */
+export async function postDrag(to: { x: number; y: number }, button: MouseButtonName): Promise<void> {
+  const e = MOUSE_EVENTS[button];
+  await jxa(POST_MOUSE, [e.dragged, to.x, to.y, e.button, 0]);
+}
 
 const FUNCTION_FLAGS = 0x800000 | 0x200000;
 const KEY_FLAGS: Record<string, number> = {

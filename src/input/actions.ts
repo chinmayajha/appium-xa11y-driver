@@ -99,7 +99,7 @@ async function onDesktop(ctx: ActionContext, to: Point): Promise<Point> {
 
 async function atPointer(ctx: ActionContext): Promise<void> {
   if (!ctx.state.synced) {
-    await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
+    await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
     ctx.state.synced = true;
   }
 }
@@ -149,7 +149,7 @@ const ACTIONS: Record<string, Handler> = {
     for (let i = 1; i <= steps; i++) {
       await ctx.guard();
       ctx.state.pointer = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
-      await ctx.input.moveTo([ctx.state.pointer.x, ctx.state.pointer.y]);
+      await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
       ctx.state.synced = true;
       if (wait && i < steps) {
         await new Promise((r) => setTimeout(r, wait));
@@ -168,14 +168,14 @@ const ACTIONS: Record<string, Handler> = {
     await ctx.guard();
     await atPointer(ctx);
     ctx.state.buttons.add(button);
-    await ctx.input.mouseDown(button);
+    await ctx.platform.pressButton(ctx.input, ctx.state.pointer, button);
     return 0;
   },
   async pointerUp(ctx, a) {
     const button = buttonOf(a);
-    ctx.state.buttons.delete(button);
     await atPointer(ctx);
-    await ctx.input.mouseUp(button);
+    ctx.state.buttons.delete(button);
+    await ctx.platform.releaseButton(ctx.input, ctx.state.pointer, button);
     ctx.state.releasedAt = Date.now();
     return 0;
   },
@@ -275,7 +275,7 @@ export async function release(ctx: ActionContext): Promise<void> {
   const failures: unknown[] = [];
   try {
     for (const button of ctx.state.buttons) {
-      await attempt(failures, () => ctx.input.mouseUp(button));
+      await attempt(failures, () => ctx.platform.releaseButton(ctx.input, ctx.state.pointer, button));
     }
     await attempt(failures, () => ctx.platform.releaseKeys(ctx.input, [...ctx.state.keys]));
   } finally {

@@ -150,7 +150,7 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'a');
   });
 
-  test('a drag across the text field selects its text', { skip: fx.platformName === 'Mac' && 'xa11y 0.15.4 presses a held button at (0, 0) on macOS' }, async () => {
+  test('a drag across the text field selects its text', async () => {
     await s.clear(field);
     await s.type(field, 'hello world');
     await eventually(text, (v) => v === 'hello world');

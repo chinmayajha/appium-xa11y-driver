@@ -149,6 +149,18 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver.
 
+### 22. A held button is pressed at (0, 0) and moves as a plain move
+
+**Status on `main`:** fixed ([xa11y #635](https://github.com/xa11y/xa11y/pull/635), merged, not released). In v0.15.4, `mouseDown` and `mouseUp` post the button event at `(0, 0)` (`git show v0.15.4:xa11y-macos/src/input.rs`, the `Point::new(0, 0)` lines), and `moveTo` always posts `kCGEventMouseMoved`.
+
+```js
+const input = xa11y.inputSim();
+await input.moveTo([400, 300]);
+await input.mouseDown('left');
+```
+
+The press lands on the Apple menu at the top-left corner, and the menu stays open. Expected: a press at `(400, 300)`. With a button held, `moveTo` must post the dragged event type, or the app sees no drag. The driver posts the press, the release and the move while a button is held with CoreGraphics at the pointer.
+
 ## Windows
 
 Seen on Windows Server 2022 (build 20348), in the console session. The status on `main` is not checked: `main` was not built on Windows.
