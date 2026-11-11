@@ -325,6 +325,22 @@ describe('calculator', () => {
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerCancel' }] }]), 'unsupported operation');
   });
 
+  test('a negative duration is an invalid argument, and no action of the call runs', async () => {
+    await s.click(await button('C'));
+    await s.click(await button('7'));
+    const five = await button('5');
+    for (const late of [{ type: 'pointerMove', duration: -1, x: 0, y: 0, origin: { [ELEMENT]: five } }, { type: 'pause', duration: -1 }]) {
+      await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+        { type: 'pointerMove', duration: 0, x: 0, y: 0, origin: { [ELEMENT]: five } },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+        late,
+      ] }]), 'invalid argument');
+    }
+    await s.click(await button('7'));
+    await shows('77');
+  });
+
   test('a pointer move takes its duration and ends on its target', async () => {
     await s.click(await button('C'));
     await s.click(await button('7'));

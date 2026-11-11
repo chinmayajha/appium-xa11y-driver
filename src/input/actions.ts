@@ -151,7 +151,7 @@ const ACTIONS: Record<string, Handler> = {
       if (duration || least > 1) {
         await pause(wait);
       }
-      t = Math.min(duration ? (Date.now() - start) / duration : 1, i / least);
+      t = i >= MAX_MOVE_STEPS ? 1 : Math.min(duration ? (Date.now() - start) / duration : 1, i / least);
       await ctx.guard();
       ctx.state.pointer = t < 1 ? { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t } : to;
       await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
@@ -233,7 +233,16 @@ async function dispatch(ctx: ActionContext, a: Action, rest: Action[]): Promise<
   return handler(ctx, a, rest);
 }
 
+function checkDurations(sequences: ActionSequence[]): void {
+  for (const a of sequences.flatMap((seq) => seq.actions)) {
+    if (a.duration !== undefined && !(Number.isFinite(a.duration) && a.duration >= 0)) {
+      throw new errors.InvalidArgumentError(`The duration of a ${a.type} must be a finite number of 0 or more, got ${JSON.stringify(a.duration)}`);
+    }
+  }
+}
+
 export async function perform(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
+  checkDurations(sequences);
   try {
     await performTicks(ctx, sequences);
   } catch (e) {
