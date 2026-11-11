@@ -349,6 +349,20 @@ describe('calculator', () => {
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerMove', x: 0, y: 0, origin: 'sideways' }] }]), 'invalid argument');
   });
 
+  test('a press held over a pause clicks at the pointer, for a mouse and a touch pointer', async () => {
+    await s.click(await button('C'));
+    const seven = center(await s.rect(await button('7')));
+    for (const pointerType of ['mouse', 'touch']) {
+      await s.actions([{ type: 'pointer', id: pointerType, parameters: { pointerType }, actions: [
+        { type: 'pointerMove', duration: 0, ...seven, origin: 'viewport' },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: 100 },
+        { type: 'pointerUp', button: 0 },
+      ] }]);
+    }
+    await shows('77');
+  });
+
   test('an unknown action type is an invalid argument', async () => {
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerWiggle' }] }]), 'invalid argument');
     await rejectsWith(s.actions([{ type: 'pointer', id: 'mouse', actions: [{ type: 'pointerCancel' }] }]), 'unsupported operation');
