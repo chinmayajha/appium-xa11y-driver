@@ -113,6 +113,48 @@ The workflow `xa11y canary` runs each day. When npm has a newer xa11y than the v
 2. Change the version of `@crowecawcaw/xa11y` in `package.json` and run `npm install`.
 3. Run the conformance suite on each OS.
 
+## Release
+
+The owner of the npm package does a release. A release goes from `main`, after CI passes on `main`.
+
+1. In `CHANGELOG.md`, change `## [Unreleased]` to `## [<version>]` and add a new, empty `## [Unreleased]` above it.
+2. Make sure that the `description` in `package.json`, `README.md` and `index.html` agree on the platforms and the capabilities.
+3. Set the version. This changes `package.json` and `package-lock.json` and makes no tag.
+
+   ```bash
+   npm version <version> --no-git-tag-version
+   ```
+
+4. Look at the package contents. They must contain `build/src/index.js` and the `hosts/` scripts, and no `test/`.
+
+   ```bash
+   npm pack --dry-run
+   ```
+
+5. Commit, then make the tag and push the two.
+
+   ```bash
+   git tag v<version>
+   ```
+
+   ```bash
+   git push origin main v<version>
+   ```
+
+6. Publish. npm asks for the two-factor code. The new version shows after approximately 2 minutes.
+
+   ```bash
+   npm publish
+   ```
+
+7. Make sure that npm has the commit of the tag.
+
+   ```bash
+   npm view appium-xa11y-driver version gitHead
+   ```
+
+8. On each Host that installed the driver from npm, run the setup script again. It updates the driver. On Linux, run `hosts/linux/setup.sh`. On macOS, run `hosts/mac/setup.sh`. On Windows, run `hosts\windows\setup.ps1` in PowerShell.
+
 ## Rules
 
 - Write docs in ASD-STE100 Simplified Technical English.
