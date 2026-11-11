@@ -11,6 +11,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 ### Changed
 
 - Windows is supported: the conformance suite passes on Windows Server 2022 and on the GitHub `windows-latest` runner.
+- The `appium:failureArtifacts` folder keeps the 50 newest failures. Before, it had no limit.
 
 ### Fixed
 
@@ -19,10 +20,6 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 - An unknown W3C action type is an `invalid argument` error, and `pointerCancel` is an `unsupported operation` error. Before, the driver ignored them.
 - On macOS, a W3C `pointerDown` with no `pointerUp` right after it presses at the pointer, and a move while it is down is a drag. Before, it pressed at `(0, 0)`, on the Apple menu.
 - On Linux, a session starts when `appium:app` is a wrapper that starts the app as a child, or a single-instance app that already runs. Before, the session failed after `appium:launchTimeout`.
-
-### Changed
-
-- The `appium:failureArtifacts` folder keeps the 50 newest failures. Before, it had no limit.
 
 ## [0.1.0]
 
