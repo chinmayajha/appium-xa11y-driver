@@ -103,7 +103,7 @@ A new process works with 0.15.4 too. Workaround: restart the process.
 
 ### 24. A multi-click on X11 has no gap between the clicks
 
-**Status on `main`:** open. Fix: [xa11y #697](https://github.com/xa11y/xa11y/pull/697). `click(count=2)` sends the two press/release pairs with no gap. GTK takes some of them as two single clicks: 5 of 60 in Mousepad (GTK 3) and 3 of 60 in a GTK 4 entry, on Debian 13 Xfce. `xdotool` with a 2 ms or 12 ms gap loses 0 of 60.
+**Status on `main`:** open. Fix: [xa11y #698](https://github.com/xa11y/xa11y/pull/698) (open; it carries the commit of #697 and adds the same pause on Wayland). `click(count=2)` sends the two press/release pairs with no gap. GTK takes some of them as two single clicks: 5 of 60 in Mousepad (GTK 3) and 3 of 60 in a GTK 4 entry, on Debian 13 Xfce. `xdotool` with a 2 ms or 12 ms gap loses 0 of 60.
 
 ```js
 await input.click([x, y], { count: 2 });
@@ -173,7 +173,7 @@ The press lands on the Apple menu at the top-left corner, and the menu stays ope
 
 ### 23. `activate` fails on a SwiftUI scene window
 
-**Status on `main`:** open. Fix: [xa11y #696](https://github.com/xa11y/xa11y/pull/696). `activate` sets `AXFrontmost` on the app, then sends `AXRaise` to the window. A window from the SwiftUI scene lifecycle (`WindowGroup`, Calculator on macOS 26) advertises `AXRaise` but answers -25205, also when it is already the main window. With 0.15.4, `activate` on the Calculator window fails 20 of 20 times.
+**Status on `main`:** open, and it stays an error by design: [xa11y #699](https://github.com/xa11y/xa11y/pull/699) (open; it carries the commit of #696) always sends `AXRaise` and reports the refusal as a clear error, because xa11y cannot confirm that the window came forward. The driver's workaround stays necessary. `activate` sets `AXFrontmost` on the app, then sends `AXRaise` to the window. A window from the SwiftUI scene lifecycle (`WindowGroup`, Calculator on macOS 26) advertises `AXRaise` but answers -25205, also when it is already the main window. With 0.15.4, `activate` on the Calculator window fails 20 of 20 times.
 
 ```js
 const app = await xa11y.App.byName('Calculator');
