@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, keyUps, lineWheel, quit, rawString, spawnApp, tap } from './common';
+import { activateWindow, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quit, rawString, spawnApp, tap } from './common';
 import { NO_FRAME, type Platform } from './platform';
 
 /** The app name of the process that a launcher started, by the app id that was launched. */
@@ -104,6 +104,9 @@ export const windows: Platform = {
   activate: activateWindow,
   // xa11y sends a positive dy to Windows as a forward wheel turn, which scrolls up.
   wheel: (input, at, dx, dy) => lineWheel(input, at, dx, -dy),
+  movePointer: moveTo,
+  pressButton: mouseDown,
+  releaseButton: mouseUp,
   pressKey: tap,
   releaseKeys: keyUps,
   windowShadow: async () => NO_FRAME,

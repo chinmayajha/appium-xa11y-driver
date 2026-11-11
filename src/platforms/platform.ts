@@ -1,4 +1,4 @@
-import type { App, Element, InputSim, Rect } from '@crowecawcaw/xa11y';
+import type { App, Element, InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 export interface Point {
@@ -33,6 +33,12 @@ export interface Platform {
   activate(app: App, window?: Element): Promise<void>;
   /** Scroll by W3C wheel deltas in pixels: positive dx goes right, positive dy goes down. */
   wheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void>;
+  /** Move the pointer to the point; while a button is held, the app gets a drag. */
+  movePointer(input: InputSim, to: Point, held: ReadonlySet<MouseButtonName>): Promise<void>;
+  /** Press a mouse button at the point, where the pointer is, and keep it down. */
+  pressButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
+  /** Release a mouse button at the point, where the pointer is. */
+  releaseButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
   /** Tap a key and return when the next synthetic key can no longer carry its flags. */
   pressKey(input: InputSim, key: string): Promise<void>;
   /** Release keys and return when the next synthetic key can no longer carry them. */

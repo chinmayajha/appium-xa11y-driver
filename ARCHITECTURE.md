@@ -34,7 +34,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `startedAt`, `runningPid` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `os`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `movePointer`, `pressButton`, `releaseButton`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `startedAt`, `runningPid` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. The guard only checks: it never activates a window. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
@@ -53,6 +53,8 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | the pid of the xa11y foreground app |
 | `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | xa11y window activate |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | xa11y wheel lines with `dy` negated (xa11y gap 17) |
+| `movePointer` | xa11y move; with a button held, post the dragged event of that button with CoreGraphics (xa11y gap 22) | xa11y move | xa11y move |
+| `pressButton`, `releaseButton` | post the button event with CoreGraphics at the pointer (xa11y gap 22) | xa11y button down and up | xa11y button down and up |
 | `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, post a flags change without Fn and keypad | xa11y key tap | xa11y key tap |
 | `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | xa11y key up |
 | `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |

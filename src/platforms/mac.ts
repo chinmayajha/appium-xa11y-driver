@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
-import { clearFlags, postPixelScroll, runningPids } from './mac-events';
+import { clearFlags, postButton, postDrag, postPixelScroll, runningPids } from './mac-events';
 import { NO_FRAME, type Platform } from './platform';
 
 const run = promisify(execFile);
@@ -102,6 +102,12 @@ export const mac: Platform = {
     await input.moveTo([at.x, at.y]);
     await postPixelScroll(at, dx, dy);
   },
+  async movePointer(input, to, held) {
+    const [button] = held;
+    await (button ? postDrag(to, button) : input.moveTo([to.x, to.y]));
+  },
+  pressButton: (_input, at, button) => postButton(at, button, true),
+  releaseButton: (_input, at, button) => postButton(at, button, false),
   async pressKey(input, key) {
     await input.press(key);
     await clearFlags([key]);
