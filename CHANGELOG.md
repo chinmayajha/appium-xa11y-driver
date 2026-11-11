@@ -4,6 +4,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+## [0.1.2]
+
 ### Fixed
 
 - On macOS, a pointer action reads the rect of each display and does not take a screenshot, so it does not need Screen Recording and does not stop when a screenshot does not return (xa11y gap 13). A point is in bounds only when one display contains it, so a point between two displays is out of bounds. Before, a point was in bounds only on the display of the screenshot. `GET /window/rect` and screenshots continue to cover one display.
