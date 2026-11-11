@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, click, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quit, rawString, spawnApp, tap } from './common';
+import { activateWindow, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quit, rawString, spawnApp, tap } from './common';
 import { NO_FRAME, type Platform } from './platform';
 
 /** The app name of the process that a launcher started, by the app id that was launched. */
@@ -107,7 +107,6 @@ export const windows: Platform = {
   movePointer: moveTo,
   pressButton: mouseDown,
   releaseButton: mouseUp,
-  click,
   pressKey: tap,
   releaseKeys: keyUps,
   windowShadow: async () => NO_FRAME,

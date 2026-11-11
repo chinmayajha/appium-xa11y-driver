@@ -147,7 +147,7 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 **Status on `main`:** open. The two ScreenCaptureKit waits have no timeout. Issue: [xa11y #682](https://github.com/xa11y/xa11y/issues/682).
 
-If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver. The driver stops a capture wait after 10 s with an error, and on macOS a pointer action reads the Desktop rect from the screens, not from a screenshot. The native wait stays and holds one Node.js worker thread.
+If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver. The driver stops a capture wait after 10 s with an error, and on macOS a pointer action does not take a screenshot, but the native wait still holds one Node.js worker thread.
 
 ### 22. A held button is pressed at (0, 0) and moves as a plain move
 
@@ -160,18 +160,6 @@ await input.mouseDown('left');
 ```
 
 The press lands on the Apple menu at the top-left corner, and the menu stays open. Expected: a press at `(400, 300)`. With a button held, `moveTo` must post the dragged event type, or the app sees no drag. The driver posts the press, the release and the move while a button is held with CoreGraphics at the pointer.
-
-### 23. A click does not reach the app on some macOS 26 Macs
-
-**Status on `main`:** open, root cause not known. Seen on macOS 26.6 (25G72), not seen on the `macos-latest` runner (macOS 26.7.2, 25G332).
-
-```js
-const input = xa11y.inputSim();
-await input.moveTo([114, 301]);
-await input.click([114, 301], { button: 'left', count: 1, held: [] });
-```
-
-At the centre of the 7 button of Calculator, the display stays "7" (2 of 2 runs, a Node.js process started by an agent shell). A CoreGraphics down, a 50 ms wait and an up with click state 1, from `osascript`, gives "77" (4 of 4 runs). The same xa11y click through Appium in a terminal on the same Mac reached Calculator. The driver posts the click with CoreGraphics on macOS.
 
 ## Windows
 

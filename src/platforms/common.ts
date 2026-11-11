@@ -93,10 +93,6 @@ export async function mouseUp(input: InputSim, _at: Point, button: MouseButtonNa
   await input.mouseUp(button);
 }
 
-export async function click(input: InputSim, at: Point, button: MouseButtonName, count: number, held: string[]): Promise<void> {
-  await input.click([at.x, at.y], { button, count, held });
-}
-
 export async function tap(input: InputSim, key: string): Promise<void> {
   await input.press(key);
 }

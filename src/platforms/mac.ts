@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
-import { clearFlags, postButton, postClick, postDrag, postPixelScroll, runningPids, screensRect } from './mac-events';
+import { clearFlags, postButton, postDrag, postPixelScroll, runningPids, screensRect } from './mac-events';
 import { NO_FRAME, type Platform } from './platform';
 
 const run = promisify(execFile);
@@ -112,7 +112,6 @@ export const mac: Platform = {
   },
   pressButton: (_input, at, button) => postButton(at, button, true),
   releaseButton: (_input, at, button) => postButton(at, button, false),
-  click: (_input, at, button, count, held) => postClick(at, button, count, held),
   async desktopBounds() {
     if (!screens || Date.now() - screens.at >= SCREENS_TTL_MS) {
       screens = { at: Date.now(), rect: screensRect() };

@@ -55,21 +55,6 @@ function run(argv) {
   $.CGEventPost($.kCGHIDEventTap, e);
 }`;
 
-// xa11y 0.15.4 click does not reach the app on some macOS 26 Macs (docs/xa11y-gaps.md item 23).
-const POST_CLICK = `ObjC.import('CoreGraphics');
-function run(argv) {
-  const [x, y, button, down, up, count, flags] = argv.map(Number);
-  for (let n = 1; n <= count; n++) {
-    for (const type of [down, up]) {
-      const e = $.CGEventCreateMouseEvent(null, type, { x, y }, button);
-      $.CGEventSetIntegerValueField(e, $.kCGMouseEventClickState, n);
-      $.CGEventSetFlags(e, flags);
-      $.CGEventPost($.kCGHIDEventTap, e);
-      delay(0.03);
-    }
-  }
-}`;
-
 const MOUSE_EVENTS: Record<MouseButtonName, { button: number; down: number; up: number; dragged: number }> = {
   left: { button: 0, down: 1, up: 2, dragged: 6 },
   right: { button: 1, down: 3, up: 4, dragged: 7 },
@@ -80,13 +65,6 @@ const MOUSE_EVENTS: Record<MouseButtonName, { button: number; down: number; up: 
 export async function postButton(at: { x: number; y: number }, button: MouseButtonName, down: boolean): Promise<void> {
   const e = MOUSE_EVENTS[button];
   await jxa(POST_MOUSE, [down ? e.down : e.up, at.x, at.y, e.button, 1]);
-}
-
-/** Click `count` times at the point in one run, with the flags of the held modifiers. */
-export async function postClick(at: { x: number; y: number }, button: MouseButtonName, count: number, held: string[]): Promise<void> {
-  const e = MOUSE_EVENTS[button];
-  const flags = held.reduce((m, k) => m | (KEY_FLAGS[k] ?? 0), 0);
-  await jxa(POST_CLICK, [at.x, at.y, e.button, e.down, e.up, count, flags]);
 }
 
 /** Post a pointer move with a button held, which apps take as a drag. */

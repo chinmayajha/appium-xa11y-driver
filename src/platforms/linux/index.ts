@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, click, groupRuns, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quitGroup, rawString, spawnApp, startedAt, tap } from '../common';
+import { activateWindow, groupRuns, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quitGroup, rawString, spawnApp, startedAt, tap } from '../common';
 import { NO_FRAME, type Frame, type Platform } from '../platform';
 import { isGtk4, windowExtents } from './atspi';
 import { frameExtents } from './x11';
@@ -213,7 +213,6 @@ export const linux: Platform = {
   movePointer: moveTo,
   pressButton: mouseDown,
   releaseButton: mouseUp,
-  click,
   pressKey: tap,
   releaseKeys: keyUps,
   windowShadow,
