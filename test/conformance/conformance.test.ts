@@ -226,9 +226,9 @@ describe('editor', () => {
       { type: 'pointerUp', button: 0 },
     ] }]);
     await clickAt(3);
-    await s.actions(keyboard([{ type: 'keyDown', value: '' }]));
+    await s.actions(keyboard([{ type: 'keyDown', value: '\uE008' }]));
     await clickAt(width - 40);
-    await s.actions(keyboard([{ type: 'keyUp', value: '' }]));
+    await s.actions(keyboard([{ type: 'keyUp', value: '\uE008' }]));
     await s.execute('xa11y: typeText', { text: 'X' });
     await eventually(text, (v) => v === 'X');
   });
