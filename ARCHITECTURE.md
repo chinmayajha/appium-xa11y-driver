@@ -55,7 +55,7 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | xa11y wheel lines with `dy` negated (xa11y gap 17) |
 | `movePointer` | xa11y move; with a button held, post the dragged event of that button with CoreGraphics (xa11y gap 22) | xa11y move | xa11y move |
 | `pressButton`, `releaseButton` | post the button event with CoreGraphics at the pointer (xa11y gap 22) | xa11y button down and up | xa11y button down and up |
-| `desktopBounds` | the rect around all `NSScreen` frames, read again after 2 s | none: `Screen.desktop()` takes a screenshot | none: `Screen.desktop()` takes a screenshot |
+| `desktopBounds` | the rect around all `NSScreen` frames, read again after 2 s; only pointer actions use it, because the full screenshot covers one display | none: `Screen.desktop()` takes a screenshot | none: `Screen.desktop()` takes a screenshot |
 | `pressKey` | xa11y key tap; after an arrow, Home, End, page or F key, post a flags change without Fn and keypad | xa11y key tap | xa11y key tap |
 | `releaseKeys` | xa11y key up, then post a flags change without the released modifiers (and Fn and keypad, as `pressKey` does) and wait until the event source reports them up | xa11y key up | xa11y key up |
 | `elementRect` | xa11y bounds | xa11y bounds; `INT_MIN` sentinels → none; GTK 4: see below | xa11y bounds |

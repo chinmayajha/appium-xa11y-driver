@@ -211,7 +211,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   }
 
   async getWindowRect() {
-    return this.s.platform.desktopBounds?.() ?? this.screen.desktop();
+    return this.screen.desktop();
   }
 
   async setWindowRect(x: number | null, y: number | null, width: number | null, height: number | null) {

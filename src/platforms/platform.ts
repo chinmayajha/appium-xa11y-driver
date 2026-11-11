@@ -39,7 +39,7 @@ export interface Platform {
   pressButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
   /** Release a mouse button at the point, where the pointer is. */
   releaseButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
-  /** The Desktop rect without a screen capture, where the OS gives one. */
+  /** The rect that the pointer can reach, read without a screen capture, where the OS gives one. */
   desktopBounds?(): Promise<Rect>;
   /** Tap a key and return when the next synthetic key can no longer carry its flags. */
   pressKey(input: InputSim, key: string): Promise<void>;
