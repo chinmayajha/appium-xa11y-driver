@@ -1,6 +1,6 @@
 import { screenshot, type Rect, type Screenshot } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { CaptureTimeoutError } from './errors';
+import { HostError } from './errors';
 
 function desktopRect(shot: Screenshot): Rect {
   const [x0, y0] = shot.imageToDesktop(0, 0);
@@ -14,20 +14,26 @@ const DESKTOP_TTL_MS = 2000;
 
 const CAPTURE_TIMEOUT_MS = 10000;
 // A capture that never returns holds a Node.js worker thread, so later captures wait on it instead of taking another thread.
-let inflight: Promise<Screenshot> | undefined;
+let inflight: { at: number; shot: Promise<Screenshot> } | undefined;
+
+function stuck(): HostError {
+  return new HostError(`The screen capture did not return in ${CAPTURE_TIMEOUT_MS / 1000} s. A different process can hold a capture (docs/xa11y-gaps.md item 13): stop that process. If captures still fail, restart Appium`);
+}
 
 async function capture(): Promise<Screenshot> {
-  inflight ??= screenshot().finally(() => {
+  const job = (inflight ??= { at: Date.now(), shot: screenshot().finally(() => {
     inflight = undefined;
-  });
+  }) });
+  const left = job.at + CAPTURE_TIMEOUT_MS - Date.now();
+  if (left <= 0) {
+    throw stuck();
+  }
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new CaptureTimeoutError(
-      `The screen capture did not return in ${CAPTURE_TIMEOUT_MS} ms; another process may hold a capture (docs/xa11y-gaps.md item 13)`,
-    )), CAPTURE_TIMEOUT_MS);
+    timer = setTimeout(() => reject(stuck()), left);
   });
   try {
-    return await Promise.race([inflight, late]);
+    return await Promise.race([job.shot, late]);
   } finally {
     clearTimeout(timer);
   }

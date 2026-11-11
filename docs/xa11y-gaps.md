@@ -147,7 +147,7 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 **Status on `main`:** open. The two ScreenCaptureKit waits have no timeout. Issue: [xa11y #682](https://github.com/xa11y/xa11y/issues/682).
 
-If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver. The driver stops a capture wait after 10 s with an error, and on macOS a pointer action does not take a screenshot, but the native wait still holds one Node.js worker thread.
+If one process holds a ScreenCaptureKit capture, `screenshot()` in a second process from the same responsible app waits and does not return. For this reason, all tests talk to one Appium process over WebDriver. The driver stops a capture wait after 10 s with an error, and on macOS a pointer action does not take a screenshot. The native wait still holds one Node.js worker thread, and the driver does not start a new capture while it waits, so the next screenshots fail at once. Stop the process that holds the capture. If screenshots still fail, restart Appium.
 
 ### 22. A held button is pressed at (0, 0) and moves as a plain move
 
