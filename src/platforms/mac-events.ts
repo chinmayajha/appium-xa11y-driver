@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { MouseButtonName } from '@crowecawcaw/xa11y';
+import type { MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 const run = promisify(execFile);
@@ -55,6 +55,21 @@ function run(argv) {
   $.CGEventPost($.kCGHIDEventTap, e);
 }`;
 
+// xa11y 0.15.4 click does not reach the app on some macOS 26 Macs (docs/xa11y-gaps.md item 23).
+const POST_CLICK = `ObjC.import('CoreGraphics');
+function run(argv) {
+  const [x, y, button, down, up, count, flags] = argv.map(Number);
+  for (let n = 1; n <= count; n++) {
+    for (const type of [down, up]) {
+      const e = $.CGEventCreateMouseEvent(null, type, { x, y }, button);
+      $.CGEventSetIntegerValueField(e, $.kCGMouseEventClickState, n);
+      $.CGEventSetFlags(e, flags);
+      $.CGEventPost($.kCGHIDEventTap, e);
+      delay(0.03);
+    }
+  }
+}`;
+
 const MOUSE_EVENTS: Record<MouseButtonName, { button: number; down: number; up: number; dragged: number }> = {
   left: { button: 0, down: 1, up: 2, dragged: 6 },
   right: { button: 1, down: 3, up: 4, dragged: 7 },
@@ -65,6 +80,13 @@ const MOUSE_EVENTS: Record<MouseButtonName, { button: number; down: number; up: 
 export async function postButton(at: { x: number; y: number }, button: MouseButtonName, down: boolean): Promise<void> {
   const e = MOUSE_EVENTS[button];
   await jxa(POST_MOUSE, [down ? e.down : e.up, at.x, at.y, e.button, 1]);
+}
+
+/** Click `count` times at the point in one run, with the flags of the held modifiers. */
+export async function postClick(at: { x: number; y: number }, button: MouseButtonName, count: number, held: string[]): Promise<void> {
+  const e = MOUSE_EVENTS[button];
+  const flags = held.reduce((m, k) => m | (KEY_FLAGS[k] ?? 0), 0);
+  await jxa(POST_CLICK, [at.x, at.y, e.button, e.down, e.up, count, flags]);
 }
 
 /** Post a pointer move with a button held, which apps take as a drag. */
@@ -79,6 +101,27 @@ const KEY_FLAGS: Record<string, number> = {
   ...Object.fromEntries(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Delete', 'Insert',
     ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`)].map((k) => [k, FUNCTION_FLAGS])),
 };
+
+// NSScreen frames have a bottom-left origin on the main screen; Desktop coordinates have a top-left origin.
+const SCREENS_RECT = `ObjC.import('AppKit');
+function run() {
+  const screens = $.NSScreen.screens;
+  const mainHeight = screens.objectAtIndex(0).frame.size.height;
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < screens.count; i++) {
+    const f = screens.objectAtIndex(i).frame;
+    const y = mainHeight - f.origin.y - f.size.height;
+    [left, top] = [Math.min(left, f.origin.x), Math.min(top, y)];
+    [right, bottom] = [Math.max(right, f.origin.x + f.size.width), Math.max(bottom, y + f.size.height)];
+  }
+  return [left, top, right - left, bottom - top].join(' ');
+}`;
+
+/** The rect around all screens in Desktop coordinates. */
+export async function screensRect(): Promise<Rect> {
+  const [x, y, width, height] = (await jxa(SCREENS_RECT, [])).stdout.trim().split(' ').map(Number);
+  return { x, y, width, height };
+}
 
 const RUNNING_PIDS = `ObjC.import('AppKit');
 function run(argv) {

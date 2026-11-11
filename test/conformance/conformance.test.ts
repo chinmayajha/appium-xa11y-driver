@@ -214,6 +214,25 @@ describe('editor', () => {
     await eventually(text, (v) => v.includes('X') && v.trim().length < 'hello world'.length);
   });
 
+  test('a click with Shift held extends the selection', async () => {
+    await s.clear(field);
+    await s.type(field, 'hello world');
+    await eventually(text, (v) => v === 'hello world');
+    const { width, height } = pngSize(await s.screenshot(field));
+    const clickAt = (x: number) => s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pause', duration: 1000 },
+      { type: 'pointerMove', duration: 0, x: x - Math.floor(width / 2), y: 12 - Math.floor(height / 2), origin: { [ELEMENT]: field } },
+      { type: 'pointerDown', button: 0 },
+      { type: 'pointerUp', button: 0 },
+    ] }]);
+    await clickAt(3);
+    await s.actions(keyboard([{ type: 'keyDown', value: '' }]));
+    await clickAt(width - 40);
+    await s.actions(keyboard([{ type: 'keyUp', value: '' }]));
+    await s.execute('xa11y: typeText', { text: 'X' });
+    await eventually(text, (v) => v === 'X');
+  });
+
   test('the Frontmost guard refuses raw input while another app is in front', async () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
