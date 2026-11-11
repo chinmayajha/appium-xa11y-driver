@@ -6,8 +6,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ### Fixed
 
-- On macOS, a pointer action reads the rect of each screen and does not take a screenshot, so it does not need Screen Recording and does not stop when a screenshot does not return (xa11y gap 13). A point on any display is in bounds, and a point between displays is out of bounds.
-- A screenshot that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells how to recover. While that capture does not return, the next screenshots, and the screenshot of `appium:failureArtifacts`, fail at once. Before, the command did not return.
+- On macOS, a pointer action reads the rect of each display and does not take a screenshot, so it does not need Screen Recording and does not stop when a screenshot does not return (xa11y gap 13). A point is in bounds only when one display contains it, so a point between two displays is out of bounds. Before, a point was in bounds only on the display of the screenshot. `GET /window/rect` and screenshots continue to cover one display.
+- A screen capture that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells how to recover. Screenshots, element screenshots, `GET /window/rect`, the screenshot of `appium:failureArtifacts`, and pointer actions on Linux and Windows take a capture. While that capture does not return, the next of these commands fail at the end of its 10 s, or at once after that. Before, the command did not return.
 
 ## [0.1.1]
 
