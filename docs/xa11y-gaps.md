@@ -233,6 +233,7 @@ Seen: `InvalidActionDataError undefined`. Expected: `InvalidActionDataError XA11
 - **macOS permissions:** the permissions go to the responsible app. A shell inside a different app (for example an IDE) can have no Accessibility while a terminal app has it.
 - **Unnatural Scroll Wheels** inverts line wheel events. The driver sends pixel scroll events, which it does not change.
 - **TextEdit:** the frame of the text area is the full height of the document. Clicks and element screenshots use the visible part.
+- **macOS event-source flags:** after the first synthetic key event, `CGEventSourceFlagsState` gives `0x20000000` for both the combined session state and the HID state and keeps it, a bit that no documented mask has and that does not stop a key test.
 - **macOS screenshots:** two PNG captures of the same pixels can have different bytes. The wheel test reads the scroll bar value.
 - **Windows Server, `calc.exe`:** it starts `win32calc.exe` and exits at once. The app process is `win32calc`.
 - **Notepad:** Enter gives `\r\n` in the text. The window title hides a known file extension, for example `system - Notepad` for `system.ini`.
