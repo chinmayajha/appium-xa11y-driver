@@ -34,7 +34,7 @@ The Windows script has the same options as PowerShell parameters: `-Driver`, `-A
 
 On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
 
-On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. The script shows the path to grant. Grant both permissions in System Settings > Privacy & Security, then restart Appium.
+On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. The script shows the path to grant. Grant both permissions in System Settings > Privacy & Security, then restart Appium. Screenshots need Screen & System Audio Recording. Pointer actions do not need it.
 
 On Windows the service is a logon task, `appium-xa11y`, of the user that runs the script. That user must be logged on to the desktop.
 
@@ -166,7 +166,7 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 - Linux: GTK 4 apps are proven on GTK 4.18 (Debian 13). On GTK 4.14 (Ubuntu 24.04), GTK 4 apps have no window and their elements have no bounds, so window commands, pointer actions and element screenshots fail. GTK 3 apps work on Ubuntu 24.04. Docker and CI use Debian 13.
 - Linux: elements have no Stable id.
 - Linux, GTK 4: AT-SPI runs an action later in the main loop of the app. If you mix an Accessibility click and Raw input, the Raw input can arrive first.
-- macOS: a second process cannot take a screenshot while a different process holds a capture.
+- macOS: a second process cannot take a screenshot while a different process holds a capture. The screenshot command fails after 10 s. Pointer actions do not take a screenshot, so they continue to work.
 - macOS: inline predictive text adds a predicted word to the value of a text field, and setting the value fails while the prediction shows. Turn it off on a test Host: System Settings > Keyboard > Text Input > Edit > Show inline predictive text.
 
 [docs/xa11y-gaps.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/docs/xa11y-gaps.md) has each xa11y limit with a short repro, and the problems that come from other parts.

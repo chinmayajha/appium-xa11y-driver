@@ -39,8 +39,6 @@ export interface Platform {
   pressButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
   /** Release a mouse button at the point, where the pointer is. */
   releaseButton(input: InputSim, at: Point, button: MouseButtonName): Promise<void>;
-  /** Click `count` times at the point with the held modifiers; a count of 2 is a double-click. */
-  click(input: InputSim, at: Point, button: MouseButtonName, count: number, held: string[]): Promise<void>;
   /** The Desktop rect without a screen capture, where the OS gives one. */
   desktopBounds?(): Promise<Rect>;
   /** Tap a key and return when the next synthetic key can no longer carry its flags. */

@@ -13,8 +13,13 @@ function desktopRect(shot: Screenshot): Rect {
 const DESKTOP_TTL_MS = 2000;
 
 const CAPTURE_TIMEOUT_MS = 10000;
+// A capture that never returns holds a Node.js worker thread, so later captures wait on it instead of taking another thread.
+let inflight: Promise<Screenshot> | undefined;
 
 async function capture(): Promise<Screenshot> {
+  inflight ??= screenshot().finally(() => {
+    inflight = undefined;
+  });
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new CaptureTimeoutError(
@@ -22,7 +27,7 @@ async function capture(): Promise<Screenshot> {
     )), CAPTURE_TIMEOUT_MS);
   });
   try {
-    return await Promise.race([screenshot(), late]);
+    return await Promise.race([inflight, late]);
   } finally {
     clearTimeout(timer);
   }
