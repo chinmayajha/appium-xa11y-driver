@@ -169,6 +169,35 @@ describe('editor', () => {
     await eventually(text, (v) => v.trim() === 'X');
   });
 
+  test('a key source keeps its tick against a pointer source that clicks', async () => {
+    await s.clear(field);
+    await s.type(field, 'hello world');
+    await eventually(text, (v) => v === 'hello world');
+    const { width, height } = pngSize(await s.screenshot(field));
+    const origin = { [ELEMENT]: field };
+    await s.actions([
+      { type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+        // GTK 3 does not count a click that comes soon after a press at another place, such as the end of a drag.
+        { type: 'pause', duration: 1000 },
+        { type: 'pointerMove', duration: 0, x: 3 - Math.floor(width / 2), y: 3 - Math.floor(height / 2), origin },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+        { type: 'pause', duration: 600 },
+        { type: 'pointerMove', duration: 0, x: Math.floor(width / 2) - 3, y: Math.floor(height / 2) - 3, origin },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pointerUp', button: 0 },
+      ] },
+      { type: 'key', id: 'keyboard', actions: [
+        { type: 'pause' }, { type: 'pause' }, { type: 'pause' }, { type: 'pause' }, { type: 'pause' },
+        { type: 'keyDown', value: '\uE008' },
+        { type: 'pause' }, { type: 'pause' },
+        { type: 'keyUp', value: '\uE008' },
+      ] },
+    ]);
+    await s.execute('xa11y: typeText', { text: 'X' });
+    await eventually(text, (v) => v.trim() === 'X');
+  });
+
   test('two clicks at one place are a double-click', async () => {
     await s.clear(field);
     await s.type(field, 'hello world');

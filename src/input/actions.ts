@@ -251,22 +251,33 @@ export async function perform(ctx: ActionContext, sequences: ActionSequence[]): 
   }
 }
 
+const MAX_MERGED = 3;
+
+const quiet = (a: Action | undefined) => !a || a.type === 'pause';
+
+/** How many ticks after `tick` the other sources only pause in, so the source `own` may merge its actions into them. */
+function quietTicks(sequences: ActionSequence[], own: number, tick: number): number {
+  let n = 0;
+  while (n < MAX_MERGED && sequences.every((seq, j) => j === own || quiet(seq.actions[tick + n + 1]))) {
+    n++;
+  }
+  return n;
+}
+
 async function performTicks(ctx: ActionContext, sequences: ActionSequence[]): Promise<void> {
-  const cursors = sequences.map(() => 0);
+  const merged = sequences.map(() => 0);
   const ticks = Math.max(0, ...sequences.map((s) => s.actions.length));
   for (let tick = 0; tick < ticks; tick++) {
     let idle = 0;
     for (const [i, seq] of sequences.entries()) {
-      const a = seq.actions[cursors[i]];
-      if (!a) {
-        continue;
-      }
-      if (a.type === 'pause') {
+      const a = seq.actions[tick];
+      if (merged[i]) {
+        merged[i]--;
+      } else if (a?.type === 'pause') {
         idle = Math.max(idle, a.duration ?? 0);
-      } else {
-        cursors[i] += await dispatch(ctx, a, seq.actions.slice(cursors[i] + 1));
+      } else if (a) {
+        merged[i] = await dispatch(ctx, a, seq.actions.slice(tick + 1, tick + 1 + quietTicks(sequences, i, tick)));
       }
-      cursors[i]++;
     }
     if (idle) {
       await pause(idle);
