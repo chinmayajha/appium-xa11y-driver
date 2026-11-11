@@ -15,7 +15,8 @@ function is(e: Error, code: string, text: RegExp): boolean {
   return known === undefined ? text.test(e.message) : known === code;
 }
 
-export class CaptureTimeoutError extends Error {}
+/** A failure of the Host that the permission hint can help with. */
+export class HostError extends Error {}
 
 const withHint = (m: string, hint = '') => (hint ? `${m}. ${hint}` : m);
 
@@ -39,7 +40,7 @@ const RULES: Rule[] = [
   [xa.PermissionDeniedError, notPermitted],
   [xa.AccessibilityNotEnabledError, notPermitted],
   [xa.PlatformError, (e, ctx) => new errors.UnknownError(withHint(e.message, ctx.hint))],
-  [CaptureTimeoutError, (e, ctx) => new errors.UnknownError(withHint(e.message, ctx.hint))],
+  [HostError, (e, ctx) => new errors.UnknownError(withHint(e.message, ctx.hint))],
 ];
 
 export function asWebDriverError(e: unknown, ctx: ErrorContext = {}): unknown {

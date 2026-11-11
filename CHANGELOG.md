@@ -7,7 +7,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 ### Fixed
 
 - On macOS, a pointer action reads the Desktop rect from the screens and does not take a screenshot, so it does not need Screen Recording and does not stop when a screenshot does not return (xa11y gap 13).
-- A screenshot that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells what to grant. Before, the command did not return.
+- A screenshot that does not return in 10 s is an `unknown error` that names the likely cause, a capture that a different process holds, and tells how to recover. While that capture does not return, the next screenshots, and the screenshot of `appium:failureArtifacts`, fail at once. Before, the command did not return.
 
 ## [0.1.1]
 
