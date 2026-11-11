@@ -13,6 +13,7 @@ const FRAME_TTL_MS = 500;
 const frames = new Map<string, { at: number; origin: Promise<Rect | null> }>();
 
 const LAUNCH_POLL_MS = 100;
+const NO_WINDOW_GRACE_MS = 5000;
 
 const pidByName = (name: string) => App.byName(name, { timeout: 0 }).then((app) => app.pid ?? undefined);
 
@@ -41,12 +42,17 @@ async function appsOf(group: number): Promise<Array<{ pid: number; app: App }>> 
 
 /** The pid of the app that a started process shows; undefined when its process group ends with no window. */
 async function shownBy(group: number, app: string, deadline: number): Promise<number | undefined> {
+  let accessibleSince: number | undefined;
   for (;;) {
     const apps = await appsOf(group);
     for (const { pid, app: a } of apps) {
       if ((await a.windows().catch(() => [])).length) {
         return pid;
       }
+    }
+    accessibleSince = apps[0] ? accessibleSince ?? Date.now() : undefined;
+    if (accessibleSince !== undefined && Date.now() - accessibleSince >= NO_WINDOW_GRACE_MS) {
+      return apps[0].pid;
     }
     if (!groupRuns(group)) {
       return undefined;
@@ -75,9 +81,14 @@ async function stopped(pid: number, deadline: number): Promise<boolean> {
 /** A single-instance app gives the request to its running instance and exits, so that instance is started again. */
 async function launch(app: string, args: string[], timeoutMs: number): Promise<number> {
   const deadline = Date.now() + timeoutMs;
-  const shown = await shownBy(await spawnApp(app, args), app, deadline);
+  const started = await spawnApp(app, args);
+  const shown = await shownBy(started.pid, app, deadline);
   if (shown !== undefined) {
     return shown;
+  }
+  const code = await started.exitCode;
+  if (code !== 0) {
+    throw new errors.SessionNotCreatedError(`'${app}' exited with ${code === null ? 'a signal' : `code ${code}`} before it showed a window`);
   }
   const running = await runningPid(app);
   if (running === undefined) {
@@ -87,7 +98,7 @@ async function launch(app: string, args: string[], timeoutMs: number): Promise<n
   if (!(await stopped(running, deadline))) {
     throw new errors.SessionNotCreatedError(`'${app}' took its start request to pid ${running}, and that instance did not stop`);
   }
-  const again = await shownBy(await spawnApp(app, args), app, deadline);
+  const again = await shownBy((await spawnApp(app, args)).pid, app, deadline);
   const instance = again ?? await runningPid(app);
   if (instance === undefined) {
     throw new errors.SessionNotCreatedError(`'${app}' exited before it showed a window`);

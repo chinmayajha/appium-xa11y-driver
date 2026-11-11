@@ -85,7 +85,7 @@ export const windows: Platform = {
   permissionHint: 'Run Appium in the same desktop session as the app, and at the same or a higher integrity level.',
   async launch(app, args, timeoutMs) {
     const before = new Set((await App.list()).map((a) => a.pid));
-    const pid = await spawnApp(app, args);
+    const { pid } = await spawnApp(app, args);
     for (const deadline = Date.now() + timeoutMs; Date.now() < deadline;) {
       const found = await started(app, pid, before);
       if (found !== undefined) {

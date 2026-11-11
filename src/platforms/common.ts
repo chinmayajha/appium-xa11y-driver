@@ -55,13 +55,20 @@ export async function startedAt(pid: number): Promise<string | undefined> {
   return stdout.trim() || undefined;
 }
 
-export function spawnApp(app: string, args: string[]): Promise<number> {
+export interface Spawned {
+  pid: number;
+  /** The exit code, or null when a signal ended the process. */
+  exitCode: Promise<number | null>;
+}
+
+export function spawnApp(app: string, args: string[]): Promise<Spawned> {
   return new Promise((resolve, reject) => {
     const child = spawn(app, args, { detached: true, stdio: 'ignore' });
+    const exitCode = new Promise<number | null>((r) => child.once('exit', (code) => r(code)));
     child.once('error', (e) => reject(new errors.SessionNotCreatedError(`Could not start '${app}': ${e.message}`)));
     child.once('spawn', () => {
       child.unref();
-      resolve(child.pid as number);
+      resolve({ pid: child.pid as number, exitCode });
     });
   });
 }

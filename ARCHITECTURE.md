@@ -49,7 +49,7 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 
 | Call | macOS | Linux (X11) | Windows |
 |---|---|---|---|
-| `launch` | `open -n -a`, then the newest pid of the bundle executable; of several copies of a bundle id, the one in an app folder | spawn, detached, then the app in the process group of that process; when the group ends with no window (a single-instance app gave the request to its running instance), stop that instance and spawn again | spawn, detached; when the process exits with no window (a launcher such as `calc.exe`), the new app whose parent is that process |
+| `launch` | `open -n -a`, then the newest pid of the bundle executable; of several copies of a bundle id, the one in an app folder | spawn, detached, then the app in the process group of that process; when the group ends with no window and the spawned process exited with code 0 (a single-instance app gave the request to its running instance), stop that instance and spawn again; an app that is accessible but shows no window for 5 s is the app | spawn, detached; when the process exits with no window (a launcher such as `calc.exe`), the new app whose parent is that process |
 | `isFrontmost` | the pid of the xa11y foreground app | one window of the app is `active` (xa11y reads the EWMH active window) | the pid of the xa11y foreground app |
 | `activate` | xa11y window activate; an error is ignored when the app is then frontmost | xa11y window activate (EWMH `_NET_ACTIVE_WINDOW` message) | xa11y window activate |
 | `wheel` | continuous pixel scroll events | xa11y wheel lines, 20 px to a line | xa11y wheel lines with `dy` negated (xa11y gap 17) |
