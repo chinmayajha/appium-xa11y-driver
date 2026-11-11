@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
+import { HostError } from '../errors';
 
 const run = promisify(execFile);
 
@@ -81,24 +82,27 @@ const KEY_FLAGS: Record<string, number> = {
 };
 
 // NSScreen frames have a bottom-left origin on the main screen; Desktop coordinates have a top-left origin.
-const SCREENS_RECT = `ObjC.import('AppKit');
+const SCREEN_RECTS = `ObjC.import('AppKit');
 function run() {
   const screens = $.NSScreen.screens;
   const mainHeight = screens.objectAtIndex(0).frame.size.height;
-  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+  const rects = [];
   for (let i = 0; i < screens.count; i++) {
     const f = screens.objectAtIndex(i).frame;
-    const y = mainHeight - f.origin.y - f.size.height;
-    [left, top] = [Math.min(left, f.origin.x), Math.min(top, y)];
-    [right, bottom] = [Math.max(right, f.origin.x + f.size.width), Math.max(bottom, y + f.size.height)];
+    rects.push([f.origin.x, mainHeight - f.origin.y - f.size.height, f.size.width, f.size.height].join(' '));
   }
-  return [left, top, right - left, bottom - top].join(' ');
+  return rects.join('\\n');
 }`;
 
-/** The rect around all screens in Desktop coordinates. */
-export async function screensRect(): Promise<Rect> {
-  const [x, y, width, height] = (await jxa(SCREENS_RECT, [])).stdout.trim().split(' ').map(Number);
-  return { x, y, width, height };
+/** The rect of each screen in Desktop coordinates. */
+export async function screenRects(): Promise<Rect[]> {
+  const { stdout } = await jxa(SCREEN_RECTS, []).catch((e: { stderr?: string; code?: string }) => {
+    throw new HostError(`The screens could not be read (${e.stderr?.trim().split('\n')[0] || e.code})`);
+  });
+  return stdout.trim().split('\n').map((line) => {
+    const [x, y, width, height] = line.split(' ').map(Number);
+    return { x, y, width, height };
+  });
 }
 
 const RUNNING_PIDS = `ObjC.import('AppKit');

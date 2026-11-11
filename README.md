@@ -167,6 +167,7 @@ Read [ARCHITECTURE.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/m
 - Linux: elements have no Stable id.
 - Linux, GTK 4: AT-SPI runs an action later in the main loop of the app. If you mix an Accessibility click and Raw input, the Raw input can arrive first.
 - macOS: a second process cannot take a screenshot while a different process holds a capture. The screenshot command fails after 10 s, and the next screenshots fail at once while that capture does not return. Stop the process that holds the capture. If screenshots still fail, restart Appium. Pointer actions do not take a screenshot, so they continue to work.
+- macOS: on a Mac with more than one display, `GET /window/rect` and screenshots cover one display, and pointer actions can reach all displays.
 - macOS: inline predictive text adds a predicted word to the value of a text field, and setting the value fails while the prediction shows. Turn it off on a test Host: System Settings > Keyboard > Text Input > Edit > Show inline predictive text.
 
 [docs/xa11y-gaps.md](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/docs/xa11y-gaps.md) has each xa11y limit with a short repro, and the problems that come from other parts.

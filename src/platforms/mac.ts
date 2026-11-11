@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
-import { clearFlags, postButton, postDrag, postPixelScroll, runningPids, screensRect } from './mac-events';
+import { clearFlags, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
 import { NO_FRAME, type Platform } from './platform';
 
 const run = promisify(execFile);
@@ -70,7 +70,7 @@ async function newestPid(bundleId: string, bundle: string, before: Set<number>, 
 
 // A JXA run costs about 100 ms and the screens rarely change, so pointer sequences close together share one read.
 const SCREENS_TTL_MS = 2000;
-let screens: { at: number; rect: Promise<Rect> } | undefined;
+let screenRead: { at: number; rects: Promise<Rect[]> } | undefined;
 
 async function frontmost(): Promise<App | undefined> {
   return App.foreground({ timeout: 0 }).catch(() => undefined);
@@ -112,11 +112,17 @@ export const mac: Platform = {
   },
   pressButton: (_input, at, button) => postButton(at, button, true),
   releaseButton: (_input, at, button) => postButton(at, button, false),
-  async desktopBounds() {
-    if (!screens || Date.now() - screens.at >= SCREENS_TTL_MS) {
-      screens = { at: Date.now(), rect: screensRect() };
+  async screens() {
+    if (!screenRead || Date.now() - screenRead.at >= SCREENS_TTL_MS) {
+      const read = { at: Date.now(), rects: screenRects() };
+      read.rects.catch(() => {
+        if (screenRead === read) {
+          screenRead = undefined;
+        }
+      });
+      screenRead = read;
     }
-    return screens.rect;
+    return screenRead.rects;
   },
   async pressKey(input, key) {
     await input.press(key);
