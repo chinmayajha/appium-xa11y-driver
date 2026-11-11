@@ -9,12 +9,11 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 ### Added
 
 - `hosts/windows/setup.ps1` prepares a Windows Host.
-- `appium:failureArtifacts`: a folder on the Host. When a command fails, the driver saves the Page source and a screenshot there.
+- `appium:failureArtifacts`: a folder on the Host. When a command fails, the driver saves the Page source and a screenshot there. The folder keeps the 50 newest failures.
 
 ### Changed
 
 - Windows is supported: the conformance suite passes on Windows Server 2022 and on the GitHub `windows-latest` runner.
-- The `appium:failureArtifacts` folder keeps the 50 newest failures. Before, it had no limit.
 - **Breaking:** In the Page source, an element with the role `web_area` and the `set_value` action has `editable="true"`. Before, it had `editable="false"`. Windows Notepad shows its text area with this role.
 - The text of an editable element is its value only. An empty field gives an empty text, not its name.
 - A session that uses `appium:appName` brings the app to the front.
