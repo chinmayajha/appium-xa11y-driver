@@ -150,7 +150,7 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'a');
   });
 
-  test('a drag across the text field selects its text', async () => {
+  test('a drag across the text field selects its text', { skip: fx.platformName === 'Mac' && 'xa11y 0.15.4 presses a held button at (0, 0) on macOS' }, async () => {
     await s.clear(field);
     await s.type(field, 'hello world');
     await eventually(text, (v) => v === 'hello world');
@@ -173,6 +173,8 @@ describe('editor', () => {
     const { width, height } = pngSize(await s.screenshot(field));
     const click = [{ type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }];
     await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      // GTK 3 does not count a double-click that comes soon after a press at another place, such as the end of a drag.
+      { type: 'pause', duration: 1000 },
       { type: 'pointerMove', duration: 0, x: 14 - Math.floor(width / 2), y: 12 - Math.floor(height / 2), origin: { [ELEMENT]: field } },
       ...click, ...click,
     ] }]);
