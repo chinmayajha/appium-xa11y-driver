@@ -98,18 +98,19 @@ describe('editor', () => {
     assert.ok(outcome === 'typed' || outcome === 'stale element reference', `outcome: ${outcome}`);
   });
 
+  // Digits, because macOS capitalizes a letter that starts a sentence when the next chord changes the selection.
   test('a primary+a chord selects all', async () => {
     await s.clear(field);
     await s.type(field, 'replace me');
     await eventually(text, (v) => v === 'replace me');
     await s.execute('xa11y: chord', { keys: 'primary+a' });
-    await s.actions(keyboard(keys('u')));
-    await eventually(text, (v) => v === 'u');
-    await s.actions(keyboard([{ type: 'keyDown', value: fx.primary }, ...keys('a'), { type: 'keyUp', value: fx.primary }, ...keys('u', 'b', 'i')]));
-    await eventually(text, (v) => v === 'ubi');
+    await s.actions(keyboard(keys('1')));
+    await eventually(text, (v) => v === '1');
+    await s.actions(keyboard([{ type: 'keyDown', value: fx.primary }, ...keys('a'), { type: 'keyUp', value: fx.primary }, ...keys('2', '3', '4')]));
+    await eventually(text, (v) => v === '234');
     await s.execute('xa11y: chord', { keys: fx.editor.lineStart });
-    await s.execute('xa11y: typeText', { text: 'k' });
-    await eventually(text, (v) => v === 'kubi');
+    await s.execute('xa11y: typeText', { text: '5' });
+    await eventually(text, (v) => v === '5234');
   });
 
   test('wheel deltas scroll in their direction', async () => {
