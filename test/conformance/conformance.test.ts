@@ -490,6 +490,20 @@ describe('session clean-up', () => {
     await eventually(stopped, Boolean, 5000);
   });
 
+  test('a start that fails while the app runs leaves the running app alone', { skip: process.env.CONFORMANCE_OS !== 'linux' && 'Linux only' }, async () => {
+    const first = await open(fx.editor.app, { 'appium:terminateOnDelete': false });
+    const before = await first.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
+    await first.delete();
+    await assert.rejects(open(fx.editor.app, { 'appium:appArguments': ['--no-such-option'] }), (e: unknown) => (e as { code?: string }).code === 'session not created');
+    const again = await attach(before.name);
+    try {
+      assert.equal((await again.execute<{ pid: number }>('xa11y: activeAppInfo')).pid, before.pid);
+    } finally {
+      await again.terminateApp(fx.editor.app);
+      await again.delete();
+    }
+  });
+
   test('a wrapper that starts the app and exits gives a session on the app', { skip: process.env.CONFORMANCE_OS !== 'linux' && 'Linux only' }, async () => {
     const s = await open('/bin/sh', { 'appium:appArguments': ['-c', `${fx.calculator.app} &`] });
     let name: string;
