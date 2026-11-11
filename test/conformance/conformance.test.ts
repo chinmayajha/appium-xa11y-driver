@@ -369,15 +369,17 @@ describe('calculator', () => {
   });
 
   test('a press held over a pause clicks at the pointer, for a mouse and a touch pointer', async () => {
-    await s.click(await button('C'));
+    const press = (pointerType: string, at: { x: number; y: number }) => s.actions([{ type: 'pointer', id: pointerType, parameters: { pointerType }, actions: [
+      { type: 'pointerMove', duration: 0, ...at, origin: 'viewport' },
+      { type: 'pointerDown', button: 0 },
+      { type: 'pause', duration: 100 },
+      { type: 'pointerUp', button: 0 },
+    ] }]);
+    // An Accessibility click on GTK 4 can run after Raw input that comes later, so the clear is Raw input too.
+    await press('mouse', center(await s.rect(await button('C'))));
     const seven = center(await s.rect(await button('7')));
     for (const pointerType of ['mouse', 'touch']) {
-      await s.actions([{ type: 'pointer', id: pointerType, parameters: { pointerType }, actions: [
-        { type: 'pointerMove', duration: 0, ...seven, origin: 'viewport' },
-        { type: 'pointerDown', button: 0 },
-        { type: 'pause', duration: 100 },
-        { type: 'pointerUp', button: 0 },
-      ] }]);
+      await press(pointerType, seven);
     }
     await shows('77');
   });
@@ -416,6 +418,7 @@ describe('calculator', () => {
       ] }]);
       return Date.now() - began;
     };
+    await move(0);
     const quick = await move(0);
     const paced = await move(300);
     await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
