@@ -125,6 +125,18 @@ function clickCount(a: Action, rest: Action[]): number {
   return again ? 2 : 1;
 }
 
+/** A platform that needs a settle after a release gets the clicks one by one, so its toolkit sees each press. */
+async function click(ctx: ActionContext, button: MouseButtonName, count: number): Promise<void> {
+  const each = ctx.platform.settleAfterReleaseMs > 0 ? 1 : count;
+  for (let sent = 0; sent < count; sent += each) {
+    await afterRelease(ctx);
+    await ctx.guard();
+    await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, count: each, held: heldModifiers(ctx.state) });
+    ctx.state.releasedAt = Date.now();
+  }
+  ctx.state.synced = true;
+}
+
 type Handler = (ctx: ActionContext, a: Action, rest: Action[]) => Promise<number>;
 
 const ACTIONS: Record<string, Handler> = {
@@ -147,15 +159,13 @@ const ACTIONS: Record<string, Handler> = {
   },
   async pointerDown(ctx, a, rest) {
     const button = buttonOf(a);
-    await afterRelease(ctx);
-    await ctx.guard();
     const count = clickCount(a, rest);
     if (count) {
-      await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, count, held: heldModifiers(ctx.state) });
-      ctx.state.releasedAt = Date.now();
-      ctx.state.synced = true;
+      await click(ctx, button, count);
       return count * 2 - 1;
     }
+    await afterRelease(ctx);
+    await ctx.guard();
     await atPointer(ctx);
     ctx.state.buttons.add(button);
     await ctx.input.mouseDown(button);
