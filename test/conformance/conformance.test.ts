@@ -375,17 +375,21 @@ describe('calculator', () => {
     await s.click(await button('7'));
     const start = center(await s.rect(await button('+')));
     const five = await button('5');
-    const began = Date.now();
-    await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
-      { type: 'pointerMove', duration: 0, ...start, origin: 'viewport' },
-      { type: 'pointerMove', duration: 300, x: 0, y: 0, origin: { [ELEMENT]: five } },
-    ] }]);
-    const took = Date.now() - began;
+    const move = async (duration: number) => {
+      const began = Date.now();
+      await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+        { type: 'pointerMove', duration: 0, ...start, origin: 'viewport' },
+        { type: 'pointerMove', duration, x: 0, y: 0, origin: { [ELEMENT]: five } },
+      ] }]);
+      return Date.now() - began;
+    };
+    const quick = await move(0);
+    const paced = await move(300);
     await s.actions([{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
       { type: 'pointerDown', button: 0 },
       { type: 'pointerUp', button: 0 },
     ] }]);
-    assert.ok(took >= 300, `the move took ${took} ms`);
+    assert.ok(paced - quick >= 250, `the move took ${paced} ms with a duration of 300 and ${quick} ms with 0`);
     await shows('75');
   });
 
@@ -539,7 +543,11 @@ describe('session clean-up', () => {
     const first = await open(fx.editor.app, { 'appium:terminateOnDelete': false });
     const before = await first.execute<{ pid: number; name: string }>('xa11y: activeAppInfo');
     await first.delete();
-    await assert.rejects(open(fx.editor.app, { 'appium:appArguments': ['--no-such-option'] }), (e: unknown) => (e as { code?: string }).code === 'session not created');
+    const outcome = await open(fx.editor.app, { 'appium:appArguments': ['--no-such-option'] }).then(async (made) => {
+      await made.delete();
+      return 'a session';
+    }, (e: { code?: string }) => e.code);
+    assert.equal(outcome, 'session not created');
     const again = await attach(before.name);
     try {
       assert.equal((await again.execute<{ pid: number }>('xa11y: activeAppInfo')).pid, before.pid);
