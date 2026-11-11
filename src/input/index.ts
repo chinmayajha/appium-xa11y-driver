@@ -46,7 +46,7 @@ export class Input {
     const at = await this.tree.visibleCenter(id);
     await this.guard(true);
     this.state.synced = false;
-    await this.sim.click([at.x, at.y]);
+    await this.platform.click(this.sim, at, 'left', 1, []);
   }
 
   /** Put text into the element, or type it into the Frontmost app when no element is given. */
@@ -113,7 +113,7 @@ export class Input {
       state: this.state,
       guard: () => this.guard(),
       elementCenter: (id) => this.tree.visibleCenter(id),
-      desktop: () => (desktop ??= this.screen.desktop()),
+      desktop: () => (desktop ??= this.platform.desktopBounds?.() ?? this.screen.desktop()),
     };
   }
 

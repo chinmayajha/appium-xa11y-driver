@@ -1,5 +1,6 @@
 import { screenshot, type Rect, type Screenshot } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
+import { CaptureTimeoutError } from './errors';
 
 function desktopRect(shot: Screenshot): Rect {
   const [x0, y0] = shot.imageToDesktop(0, 0);
@@ -11,6 +12,22 @@ function desktopRect(shot: Screenshot): Rect {
 // A capture costs tens of milliseconds and the size rarely changes, so pointer sequences close together share one.
 const DESKTOP_TTL_MS = 2000;
 
+const CAPTURE_TIMEOUT_MS = 10000;
+
+async function capture(): Promise<Screenshot> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new CaptureTimeoutError(
+      `The screen capture did not return in ${CAPTURE_TIMEOUT_MS} ms; another process may hold a capture (docs/xa11y-gaps.md item 13)`,
+    )), CAPTURE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([screenshot(), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function sized(shot: Screenshot, width: number, height: number): Screenshot {
   return width === shot.width && height === shot.height ? shot : shot.resize(width, height);
 }
@@ -21,7 +38,7 @@ export class Screen {
 
   /** The whole desktop, or the part under a rect. Parts are cut from one full capture. */
   async capture(rect?: Rect): Promise<Buffer> {
-    const full = await screenshot();
+    const full = await capture();
     if (!rect) {
       const d = this.remember(desktopRect(full));
       return sized(full, d.width, d.height).toPng();
@@ -40,7 +57,7 @@ export class Screen {
     if (this.known && Date.now() - this.known.at < DESKTOP_TTL_MS) {
       return this.known.rect;
     }
-    return this.remember(desktopRect(await screenshot()));
+    return this.remember(desktopRect(await capture()));
   }
 
   private remember(rect: Rect): Rect {
