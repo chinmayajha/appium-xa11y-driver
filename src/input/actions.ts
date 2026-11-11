@@ -176,8 +176,8 @@ const ACTIONS: Record<string, Handler> = {
   async pointerUp(ctx, a) {
     const button = buttonOf(a);
     await atPointer(ctx);
-    ctx.state.buttons.delete(button);
     await ctx.platform.releaseButton(ctx.input, ctx.state.pointer, button);
+    ctx.state.buttons.delete(button);
     ctx.state.releasedAt = Date.now();
     return 0;
   },
@@ -194,8 +194,8 @@ const ACTIONS: Record<string, Handler> = {
   },
   async keyUp(ctx, a) {
     const key = w3cKey(a.value ?? '');
-    ctx.state.keys.delete(key);
     await ctx.platform.releaseKeys(ctx.input, [key]);
+    ctx.state.keys.delete(key);
     return 0;
   },
   async scroll(ctx, a) {
