@@ -4,6 +4,26 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- On macOS, `appium:app` takes the name of an installed app, for example `Notes`, in place of a path or a bundle id. The driver looks for `<name>.app` in the app folders, and the case of the name is not important.
+
+### Changed
+
+- On macOS, when the app of `appium:app` runs before the start, the session attaches to it and brings it to the front. Before, the driver started a second instance. The session does not stop that app when it ends.
+- On macOS, when the app is a Chromium app (Electron or CEF, for example Spotify), the driver starts it with `--force-renderer-accessibility`, so its web content is in the Page source. When it runs before the start without that flag, the driver asks it for its web tree through `AXManualAccessibility`. If the app does not accept that, the driver quits the app and starts it again with the flag. Work that is not saved in that app is lost.
+- Before a click or send keys, the driver brings the Session app to the front when a different app is in front. Raw input goes only to the Session app (ADR 0002): if the Session app does not come to the front, the command fails with `invalid element state` and sends nothing.
+- `appium:appName` matches without case and without invisible format characters, so `whatsapp` attaches to the app named `\u200eWhatsApp`. When no running app has the name, the error tells you to use `appium:app`.
+- In send keys to a field that has one line, Return and Tab are keys. Before, they went into the value, and the field removed them.
+- **Breaking:** In the Page source, the `show_menu` action does not make an element `clickable`, and the `scroll_to_visible` action does not make an element `scrollable`. Chromium gives these actions to all elements.
+- **Breaking:** In the Page source, a button that opens a menu (`AXPopUpButton` on macOS) has `editable="false"`. It has the `combo_box` role, as a combo box does.
+
+### Fixed
+
+- Send keys to a field that accepts the accessibility call and keeps its value (Mac Catalyst apps such as WhatsApp) types the text as Raw input.
+- A click on an element that has the press action and refuses it (a text field in Calendar) is a Raw click.
+- The first click after the Session app comes to the front opens menus. Before, the app could drop that click.
+
 ## [0.1.2]
 
 ### Fixed

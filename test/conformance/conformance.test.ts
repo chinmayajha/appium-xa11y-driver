@@ -234,7 +234,7 @@ describe('editor', () => {
     await eventually(text, (v) => v === 'X');
   });
 
-  test('the Frontmost guard refuses raw input while another app is in front', async () => {
+  test('raw input brings the Session app to the front and never reaches the app that was in front', async () => {
     await s.clear(field);
     const editor = await s.execute<{ pid: number }>('xa11y: activeAppInfo');
     const calculator = await s.execute<{ pid: number }>('xa11y: launch', { app: fx.calculator.app });
@@ -242,21 +242,14 @@ describe('editor', () => {
     const shown = await texts();
     await s.execute('xa11y: switchApp', { pid: editor.pid });
     field = await s.find('xpath', fx.editor.field);
-    await rejectsWith(s.actions(keyboard(keys('7'))), 'invalid element state');
-    await rejectsWith(s.execute('xa11y: chord', { keys: '7' }), 'invalid element state');
-    await rejectsWith(s.execute('xa11y: typeText', { text: '7' }), 'invalid element state');
-    if (await s.attribute(field, 'clickable') === 'false') {
-      await rejectsWith(s.click(field), 'invalid element state');
-    }
-    // Send keys focuses the field first, and a focus on Windows also brings the editor to the front.
-    await s.type(field, '\uE003').catch((e: Error) => assert.match(e.message, /invalid element state/));
-    await new Promise((r) => setTimeout(r, 300));
-    assert.equal(await text(), '');
+    await s.actions(keyboard(keys('7')));
+    await eventually(text, (v) => v === '7');
     await s.execute('xa11y: switchApp', { pid: calculator.pid });
-    assert.equal(await texts(), shown, 'a refused key reached the Calculator');
+    assert.equal(await texts(), shown, 'a key reached the Calculator');
     await s.terminateApp(fx.calculator.app);
     await s.execute('xa11y: switchApp', { pid: editor.pid });
     field = await s.find('xpath', fx.editor.field);
+    await s.clear(field);
     await s.execute('xa11y: focusWindow');
     await eventually(async () => s.actions(keyboard(keys('o', 'k'))).then(() => true, () => false), Boolean);
     await eventually(text, (v) => v === 'ok');
@@ -517,6 +510,30 @@ describe('app arguments', { skip: !fx.arguments && 'no fixture app shows its arg
     try {
       const shown = shows.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       await eventually(() => s.source(), (src) => new RegExp(`\\b(name|value|label)="${shown}"`).test(src));
+    } finally {
+      await s.delete();
+    }
+  });
+});
+
+describe('menu button', { skip: !fx.menuButton && 'no fixture menu button on this OS' }, () => {
+  test('a button that opens a menu is not editable', async () => {
+    const s = await open(fx.menuButton!.app);
+    try {
+      const button = await s.find('xpath', fx.menuButton!.xpath);
+      assert.equal(await s.attribute(button, 'editable'), 'false');
+      assert.equal(await s.attribute(button, 'clickable'), 'true');
+    } finally {
+      await s.delete();
+    }
+  });
+});
+
+describe('app by name', { skip: !fx.calculatorName && 'the app id is the name of the app on this Host OS' }, () => {
+  test('appium:app takes the name of an installed app', async () => {
+    const s = await open(fx.calculatorName!);
+    try {
+      assert.ok(await s.find('xpath', fx.calculator.buttons[7]));
     } finally {
       await s.delete();
     }

@@ -13,6 +13,10 @@ const CONTROL_KEYS: Record<string, string> = { '\n': 'Enter', '\r': 'Enter', '\t
 const GUARD_INTERVAL_MS = 100;
 // An app can show a value it was given a moment later, so the value is read again before the text goes as Raw input.
 const VALUE_SETTLE_MS = [0, 150];
+const FRONT_WAIT_MS = [50, 150, 300];
+const MULTILINE_ROLES = new Set(['text_area', 'web_area']);
+// An app that just came to the front drops the first click while it activates its window (Spotify's Create menu).
+const ACTIVATED_SETTLE_MS = 250;
 
 /** A W3C key code that stands for a character, such as the numpad keys, becomes that character. */
 function typedChar(ch: string): string {
@@ -36,9 +40,10 @@ export class Input {
   constructor(private target: Target, private tree: Tree, private platform: Platform, private screen: Screen) {}
 
   async click(id: string): Promise<void> {
+    await this.front();
     const el = await this.tree.element(id);
-    if (el.actions.includes('press')) {
-      await el.press();
+    // Some elements list press and refuse it (a text field in Calendar).
+    if (el.actions.includes('press') && await el.press().then(() => true, () => false)) {
       return;
     }
     await this.rawClick(id);
@@ -53,11 +58,14 @@ export class Input {
 
   /** Put text into the element, or type it into the Frontmost app when no element is given. */
   async type(text: string, id?: string): Promise<void> {
+    await this.front();
     const el = id === undefined ? undefined : await this.focus(id);
     let viaValue = this.platform.typeTextMovesCaret && Boolean(el && (el.editable || el.actions.includes('set_value')));
+    // A single-line field drops a line break from its value, so Return and Tab go to it as keys.
+    const singleLine = el !== undefined && !MULTILINE_ROLES.has(el.role);
     let run = '';
     for (const ch of [...text].map(typedChar)) {
-      const key = keyFor(ch, viaValue);
+      const key = keyFor(ch, viaValue && !singleLine);
       if (!key) {
         run += ch;
         continue;
@@ -135,16 +143,33 @@ export class Input {
     };
   }
 
+  /** Brings the Session app back to the front when another app took it, so its menus and popovers open; best effort. */
+  private async front(): Promise<boolean> {
+    const app = this.target.app;
+    if (await this.platform.isFrontmost(app)) {
+      return true;
+    }
+    await this.platform.activate(app).catch(() => undefined);
+    for (const wait of FRONT_WAIT_MS) {
+      await new Promise((r) => setTimeout(r, wait));
+      if (await this.platform.isFrontmost(app)) {
+        await new Promise((r) => setTimeout(r, ACTIVATED_SETTLE_MS));
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async guard(always = false): Promise<void> {
     if (!always && Date.now() - this.checkedAt < GUARD_INTERVAL_MS) {
       return;
     }
     const app = this.target.app;
-    if (!(await this.platform.isFrontmost(app))) {
+    if (!(await this.front())) {
       const front = await this.platform.frontmostName().catch(() => undefined);
       throw new errors.InvalidElementStateError(
-        `${app.name} is not the frontmost app (${front ?? 'another window'} is), so keyboard and mouse input would reach that app. `
-        + 'Activate it first (activateApp or xa11y: focusWindow).',
+        `${app.name} did not come to the front (${front ?? 'another window'} stays frontmost, for example a system alert), `
+        + 'so keyboard and mouse input would reach that app. Close what holds the front, then try again.',
       );
     }
     this.checkedAt = Date.now();

@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
-import { clearFlags, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
+import { clearFlags, manualAccessibility, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
 import { NO_FRAME, type Platform } from './platform';
 
 const run = promisify(execFile);
@@ -35,15 +35,31 @@ const installedFirst = (hits: string[]) => hits.find((h) => APP_DIRS.includes(pa
 
 const isBundlePath = (app: string) => app.endsWith('.app') && existsSync(app);
 
+/** An installed app by its name, such as "Notes", without case. */
+function namedBundle(name: string): string | undefined {
+  const want = `${name.toLowerCase()}.app`;
+  for (const dir of APP_DIRS.filter((d) => existsSync(d))) {
+    const entry = readdirSync(dir).find((e) => e.toLowerCase() === want);
+    if (entry) {
+      return path.join(dir, entry);
+    }
+  }
+  return undefined;
+}
+
 async function bundlePath(app: string): Promise<string> {
   if (isBundlePath(app)) {
     return realpathSync(app);
+  }
+  const named = namedBundle(app);
+  if (named) {
+    return named;
   }
   const query = `kMDItemCFBundleIdentifier == "${app.replace(/"/g, '')}"`;
   const indexed = installedFirst((await out('mdfind', [query]).catch(() => '')).split('\n').filter(Boolean));
   const found = indexed ?? await scanAppDirs(app);
   if (!found) {
-    throw new errors.InvalidArgumentError(`No app bundle found for '${app}'. Pass an .app path or a bundle id.`);
+    throw new errors.InvalidArgumentError(`No app bundle found for '${app}'. Pass an .app path, a bundle id or the name of an installed app.`);
   }
   return found;
 }
@@ -68,6 +84,35 @@ async function newestPid(bundleId: string, bundle: string, before: Set<number>, 
   throw new errors.SessionNotCreatedError(`'${bundle}' did not start within ${timeoutMs} ms`);
 }
 
+// Chromium builds the accessibility tree of web content only on request, so a web app shows an empty window without it.
+const RENDERER_FLAG = '--force-renderer-accessibility';
+type Chromium = 'electron' | 'cef';
+
+function chromiumOf(bundle: string): Chromium | undefined {
+  const frameworks = path.join(bundle, 'Contents', 'Frameworks');
+  if (existsSync(path.join(frameworks, 'Electron Framework.framework'))) {
+    return 'electron';
+  }
+  return existsSync(path.join(frameworks, 'Chromium Embedded Framework.framework')) ? 'cef' : undefined;
+}
+
+/** Whether a running Chromium app gives its web tree: it started with the flag, or Electron takes AXManualAccessibility. */
+async function webTreeOn(pid: number, chromium: Chromium): Promise<boolean> {
+  if ((await out('ps', ['-o', 'command=', '-p', String(pid)]).catch(() => '')).includes(RENDERER_FLAG)) {
+    return true;
+  }
+  return chromium === 'electron' && manualAccessibility(pid).catch(() => false);
+}
+
+/** Quits the app and waits for its process to end, so a new instance can start with the flag. */
+async function stop(pid: number, timeoutMs: number): Promise<void> {
+  quit(pid);
+  const deadline = Date.now() + timeoutMs;
+  while (await startedAt(pid) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 // A JXA run costs about 100 ms and the screens rarely change, so pointer sequences close together share one read.
 const SCREENS_TTL_MS = 2000;
 let screenRead: { at: number; rects: Promise<Rect[]> } | undefined;
@@ -84,13 +129,20 @@ export const mac: Platform = {
   async launch(app, args, timeoutMs) {
     const bundle = await bundlePath(app);
     const id = await requiredBundleId(bundle);
-    const before = await runningPids(id, bundle);
+    const chromium = chromiumOf(bundle);
+    let before = await runningPids(id, bundle);
     // A second instance of a single-instance app (WhatsApp, Spotify, Teams) only shows an error, so a running app is reopened as a Dock click does.
     if (before.size && !args.length) {
-      await run('open', ['-a', bundle]);
-      return Math.max(...before);
+      const pid = Math.max(...before);
+      if (!chromium || await webTreeOn(pid, chromium)) {
+        await run('open', ['-a', bundle]);
+        return pid;
+      }
+      await stop(pid, timeoutMs);
+      before = await runningPids(id, bundle);
     }
-    await run('open', ['-n', '-a', bundle, ...(args.length ? ['--args', ...args] : [])]);
+    const all = chromium && !args.includes(RENDERER_FLAG) ? [...args, RENDERER_FLAG] : args;
+    await run('open', ['-n', '-a', bundle, ...(all.length ? ['--args', ...all] : [])]);
     return newestPid(id, bundle, before, timeoutMs);
   },
   async isFrontmost(app) {
@@ -143,12 +195,13 @@ export const mac: Platform = {
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => rawString(el, 'ax_role'),
   scrollTypes: new Set(['AXScrollArea']),
+  menuButtonTypes: new Set(['AXPopUpButton']),
   settleAfterReleaseMs: 0,
   typeTextMovesCaret: true,
   terminate: quit,
   startedAt,
   async runningPid(appId) {
-    const bundle = isBundlePath(appId) ? realpathSync(appId) : undefined;
+    const bundle = isBundlePath(appId) ? realpathSync(appId) : namedBundle(appId);
     const id = bundle ? await bundleIdOf(bundle) : appId;
     const pids = id ? [...await runningPids(id, bundle)] : [];
     return pids.length ? Math.max(...pids) : undefined;

@@ -25,7 +25,10 @@ export interface Snapshot {
   nodes: Map<XmlElement, Node>;
 }
 
-const CLICK_ACTIONS = new Set(['press', 'activate', 'open', 'pick', 'show_menu']);
+// Chromium gives every node show_menu (a context menu), so it does not make an element clickable.
+const CLICK_ACTIONS = new Set(['press', 'activate', 'open', 'pick']);
+// Bringing an element into view does not make it a scroll container; Chromium gives every node this action.
+const INTO_VIEW_ACTIONS = new Set(['scroll_into_view', 'scroll_to_visible']);
 const CLICK_ROLES = new Set([
   'button', 'link', 'menu_item', 'menu', 'check_box', 'radio_button', 'switch', 'tab',
   'list_item', 'tree_item', 'table_row', 'table_cell', 'combo_box', 'slider', 'spin_button',
@@ -36,20 +39,27 @@ const SCROLL_ROLES = new Set(['list', 'table', 'web_area', 'text_area']);
 const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
-export type RoleNames = Pick<Platform, 'platformRole' | 'scrollTypes'>;
+export type RoleNames = Pick<Platform, 'platformRole' | 'scrollTypes' | 'menuButtonTypes'>;
 
 function isScrollable(el: Element, role: string, type: string, scrollTypes: ReadonlySet<string>): boolean {
   return SCROLL_ROLES.has(role) || scrollTypes.has(type)
-    || el.actions.some((a) => a.startsWith('scroll_') && a !== 'scroll_into_view');
+    || el.actions.some((a) => a.startsWith('scroll_') && !INTO_VIEW_ACTIONS.has(a));
 }
 
-function actionFlags(el: Element, role: string, type: string, scrollTypes: ReadonlySet<string>): Record<string, string> {
+function isEditable(el: Element, role: string, type: string, names: RoleNames): boolean {
+  if (names.menuButtonTypes.has(type)) {
+    return false;
+  }
+  return el.editable || EDIT_ROLES.has(role) || (role === 'web_area' && el.actions.includes('set_value'));
+}
+
+function actionFlags(el: Element, role: string, type: string, names: RoleNames): Record<string, string> {
   const actions = el.actions;
   return {
     clickable: String(CLICK_ROLES.has(role) || actions.some((a) => CLICK_ACTIONS.has(a))),
     checkable: String(CHECK_ROLES.has(role) || el.checked !== null || actions.includes('toggle')),
-    editable: String(el.editable || EDIT_ROLES.has(role) || (role === 'web_area' && actions.includes('set_value'))),
-    scrollable: String(isScrollable(el, role, type, scrollTypes)),
+    editable: String(isEditable(el, role, type, names)),
+    scrollable: String(isScrollable(el, role, type, names.scrollTypes)),
   };
 }
 
@@ -70,7 +80,7 @@ export function attributesOf(el: Element, { rect, id }: Placement, names: RoleNa
     focused: String(el.focused),
     selected: String(el.selected),
     checked: String(el.checked === 'on'),
-    ...actionFlags(el, el.role, type, names.scrollTypes),
+    ...actionFlags(el, el.role, type, names),
     ...boundsOf(rect),
   };
 }

@@ -76,7 +76,10 @@ export class Target {
         return app;
       }
       if (Date.now() >= deadline) {
-        return App.byName(name, { timeout: 0 });
+        return App.byName(name, { timeout: 0 }).catch((e: Error) => {
+          e.message = `No running app is named '${name}'. To start it, use appium:app. ${e.message}`;
+          throw e;
+        });
       }
       await new Promise((r) => setTimeout(r, 100));
     }
