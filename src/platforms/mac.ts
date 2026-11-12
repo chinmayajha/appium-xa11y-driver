@@ -85,6 +85,11 @@ export const mac: Platform = {
     const bundle = await bundlePath(app);
     const id = await requiredBundleId(bundle);
     const before = await runningPids(id, bundle);
+    // A second instance of a single-instance app (WhatsApp, Spotify, Teams) only shows an error, so a running app is reopened as a Dock click does.
+    if (before.size && !args.length) {
+      await run('open', ['-a', bundle]);
+      return Math.max(...before);
+    }
     await run('open', ['-n', '-a', bundle, ...(args.length ? ['--args', ...args] : [])]);
     return newestPid(id, bundle, before, timeoutMs);
   },

@@ -11,6 +11,8 @@ import { isSpecialKey, parseChord, w3cKey } from './keys';
 const CONTROL_KEYS: Record<string, string> = { '\n': 'Enter', '\r': 'Enter', '\t': 'Tab' };
 // A check costs a round trip to the accessibility API, so events closer together than this share one.
 const GUARD_INTERVAL_MS = 100;
+// An app can show a value it was given a moment later, so the value is read again before the text goes as Raw input.
+const VALUE_SETTLE_MS = [0, 150];
 
 /** A W3C key code that stands for a character, such as the numpad keys, becomes that character. */
 function typedChar(ch: string): string {
@@ -60,14 +62,14 @@ export class Input {
         run += ch;
         continue;
       }
-      await this.typeRun(run, viaValue ? el : undefined);
+      await this.typeRun(run, viaValue ? el : undefined, id);
       // The app gets Raw input after accessibility calls that come later, so the text after a Raw key stays Raw to keep its order.
       viaValue = false;
       run = '';
       await this.guard();
       await this.platform.pressKey(this.sim, key);
     }
-    await this.typeRun(run, viaValue ? el : undefined);
+    await this.typeRun(run, viaValue ? el : undefined, id);
   }
 
   private async focus(id: string): Promise<Element> {
@@ -76,13 +78,29 @@ export class Input {
     return el;
   }
 
-  /** Types the run through the element's value, or as Raw input when there is no element or it refuses. */
-  private async typeRun(run: string, el?: Element): Promise<void> {
-    if (!run || (el && await el.typeText(run).then(() => true, () => false))) {
+  /** Types the run through the element's value, or as Raw input when there is no element, it refuses, or its value stays the same. */
+  private async typeRun(run: string, el?: Element, id?: string): Promise<void> {
+    if (!run || (el && id !== undefined && await this.typedByValue(run, el, id))) {
       return;
     }
     await this.guard();
     await this.sim.typeText(run);
+  }
+
+  // Some apps (Mac Catalyst apps such as WhatsApp) accept the accessibility call and ignore it.
+  private async typedByValue(run: string, el: Element, id: string): Promise<boolean> {
+    const before = el.value ?? '';
+    if (!(await el.typeText(run).then(() => true, () => false))) {
+      return false;
+    }
+    for (const wait of VALUE_SETTLE_MS) {
+      await new Promise((r) => setTimeout(r, wait));
+      const after = await this.tree.element(id).then((e) => e.value ?? '', () => undefined);
+      if (after !== before) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async clear(id: string): Promise<void> {

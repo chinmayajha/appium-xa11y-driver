@@ -5,7 +5,9 @@ import { mainWindow } from './platforms/common';
 
 const WINDOW_WAIT_MS = 5000;
 
-const noWindow = (name?: string) => new errors.NoSuchWindowError(name ? `No window named '${name}'` : 'The app has no window');
+const plainName = (name: string) => name.normalize('NFC').replace(/\p{Cf}/gu, '').trim().toLowerCase();
+
+const noWindow =(name?: string) => new errors.NoSuchWindowError(name ? `No window named '${name}'` : 'The app has no window');
 
 interface Launched {
   pid: number;
@@ -33,9 +35,13 @@ export class Target {
     return this.current;
   }
 
+  /** Starts the app, or attaches to the running instance where the platform reopens it; only a started process stops with the session. */
   async launch(app: string, args: string[] = []): Promise<App> {
+    const running = await this.platform.runningPid(app);
     const pid = await this.platform.launch(app, args, this.timeoutMs);
-    this.launched.push({ pid, appId: app, started: await this.platform.startedAt(pid) });
+    if (pid !== running) {
+      this.launched.push({ pid, appId: app, started: await this.platform.startedAt(pid) });
+    }
     this.current = await App.byPid(pid, { timeout: this.timeoutMs });
     await this.waitForWindow(Math.min(this.timeoutMs, WINDOW_WAIT_MS));
     await this.platform.activate(this.current).catch(() => undefined);
@@ -53,11 +59,27 @@ export class Target {
     if (ref.pid) {
       this.current = await App.byPid(ref.pid, { timeout: timeoutMs });
     } else if (ref.name) {
-      this.current = await App.byName(ref.name, { timeout: timeoutMs });
+      this.current = await this.byName(ref.name, timeoutMs);
     } else {
       this.current = await this.frontmost(timeoutMs);
     }
     return this.current;
+  }
+
+  /** The app whose name matches without case and invisible format marks (WhatsApp is named "‎WhatsApp" on macOS). */
+  private async byName(name: string, timeoutMs: number): Promise<App> {
+    const want = plainName(name);
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const app = (await App.list()).find((a) => plainName(a.name) === want);
+      if (app) {
+        return app;
+      }
+      if (Date.now() >= deadline) {
+        return App.byName(name, { timeout: 0 });
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
 
   /** xa11y names the window manager as the foreground app on X11, so the app with the active window wins where one has it. */
