@@ -17,6 +17,8 @@ const FRONT_WAIT_MS = [50, 150, 300];
 const MULTILINE_ROLES = new Set(['text_area', 'web_area']);
 // An app that just came to the front drops the first click while it activates its window (Spotify's Create menu).
 const ACTIVATED_SETTLE_MS = 250;
+// An app reads a value set through accessibility after a Raw key sent at once (Calendar's quick event drops the Return).
+const KEY_AFTER_VALUE_MS = 300;
 
 /** A W3C key code that stands for a character, such as the numpad keys, becomes that character. */
 function typedChar(ch: string): string {
@@ -70,7 +72,9 @@ export class Input {
         run += ch;
         continue;
       }
-      await this.typeRun(run, viaValue ? el : undefined, id);
+      if (await this.typeRun(run, viaValue ? el : undefined, id)) {
+        await new Promise((r) => setTimeout(r, KEY_AFTER_VALUE_MS));
+      }
       // The app gets Raw input after accessibility calls that come later, so the text after a Raw key stays Raw to keep its order.
       viaValue = false;
       run = '';
@@ -86,13 +90,17 @@ export class Input {
     return el;
   }
 
-  /** Types the run through the element's value, or as Raw input when there is no element, it refuses, or its value stays the same. */
-  private async typeRun(run: string, el?: Element, id?: string): Promise<void> {
-    if (!run || (el && id !== undefined && await this.typedByValue(run, el, id))) {
-      return;
+  /** Types the run through the element's value, or as Raw input when there is no element, it refuses, or its value stays the same; true when the value took it. */
+  private async typeRun(run: string, el?: Element, id?: string): Promise<boolean> {
+    if (!run) {
+      return false;
+    }
+    if (el && id !== undefined && await this.typedByValue(run, el, id)) {
+      return true;
     }
     await this.guard();
     await this.sim.typeText(run);
+    return false;
   }
 
   // Some apps (Mac Catalyst apps such as WhatsApp) accept the accessibility call and ignore it.
