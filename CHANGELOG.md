@@ -4,6 +4,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Added
 
 - On macOS, `appium:app` takes the name of an installed app, for example `Notes`, in place of a path or a bundle id. The driver looks for `<name>.app` in the app folders, and the case of the name is not important.
