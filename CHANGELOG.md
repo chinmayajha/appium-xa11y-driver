@@ -4,6 +4,10 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- In send keys, a Return or Tab that follows text set through the field's value waits 300 ms, so the app reads the text first. Before, Calendar's quick event dropped the Return in 2 of 6 tries.
+
 ## [0.2.0]
 
 ### Added
