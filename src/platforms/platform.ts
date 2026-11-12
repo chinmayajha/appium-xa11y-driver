@@ -57,6 +57,8 @@ export interface Platform {
   platformRole(el: Element): string;
   /** OS role names of scroll containers. */
   readonly scrollTypes: ReadonlySet<string>;
+  /** OS role names of buttons that open a menu and share the combo_box role with a field. */
+  readonly menuButtonTypes: ReadonlySet<string>;
   /** Wait after a pointer release before the next pointer event; some toolkits drop a click otherwise. */
   readonly settleAfterReleaseMs: number;
   /** Whether the element typeText of xa11y leaves the caret after the text it inserts; when not, typing goes as Raw input. */

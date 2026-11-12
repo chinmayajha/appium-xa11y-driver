@@ -137,3 +137,15 @@ export async function clearFlags(keys: string[]): Promise<void> {
     throw new errors.UnknownError(`${keys.join(', ')} still held 1 s after the release, so the next key would carry them`);
   }
 }
+
+const MANUAL_ACCESSIBILITY = `ObjC.import('ApplicationServices');
+function run(argv) {
+  const app = $.AXUIElementCreateApplication(Number(argv[0]));
+  return String($.AXUIElementSetAttributeValue(app, $('AXManualAccessibility'), $.kCFBooleanTrue));
+}`;
+
+/** Asks an Electron app to build its web accessibility tree; false when the app does not take the attribute. */
+export async function manualAccessibility(pid: number): Promise<boolean> {
+  const { stdout } = await jxa(MANUAL_ACCESSIBILITY, [pid]);
+  return stdout.trim() === '0';
+}

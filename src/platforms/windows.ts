@@ -116,6 +116,7 @@ export const windows: Platform = {
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => CONTROL_TYPES[Number(el.raw.control_type_id) - 50000] ?? '',
   scrollTypes: new Set(),
+  menuButtonTypes: new Set(),
   settleAfterReleaseMs: 0,
   // Notepad: typeText('ab') then typeText('c') gives 'cab'.
   typeTextMovesCaret: false,

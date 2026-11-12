@@ -11,6 +11,10 @@ export interface Fixtures {
   /** Arguments that make the app show `shows` when it starts. */
   arguments?: { app: string; args: string[]; shows: string };
   checkBox?: { app: string; xpath: string };
+  /** A button that opens a menu and has the combo_box role. */
+  menuButton?: { app: string; xpath: string };
+  /** The name of the calculator app, where `appium:app` takes a name in place of the app id. */
+  calculatorName?: string;
 }
 
 const fixtures: Record<string, Fixtures> = {
@@ -24,6 +28,8 @@ const fixtures: Record<string, Fixtures> = {
       stableId: { id: 'Seven', name: '7' },
     },
     checkBox: { app: 'com.apple.TextEdit', xpath: "//check_box[@name='bold']" },
+    menuButton: { app: 'com.apple.TextEdit', xpath: "//combo_box[@type='AXPopUpButton']" },
+    calculatorName: 'calculator',
   },
   linux: {
     platformName: 'Linux',
