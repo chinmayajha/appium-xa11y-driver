@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { App, type Rect } from '@crowecawcaw/xa11y';
+import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
 import { clearFlags, manualAccessibility, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
@@ -117,6 +117,16 @@ async function stop(pid: number, timeoutMs: number): Promise<void> {
 const SCREENS_TTL_MS = 2000;
 let screenRead: { at: number; rects: Promise<Rect[]> } | undefined;
 
+/** A table lists its rows and also columns, and a column holds the cells that its table's rows hold. */
+async function inRowOf(table: Element, column: Element, cell: Element): Promise<boolean> {
+  if (rawString(column, 'ax_role') !== 'AXColumn') {
+    return false;
+  }
+  const row = await cell.parent();
+  const rowTable = row && rawString(row, 'ax_role') === 'AXRow' ? await row.parent() : null;
+  return rowTable !== null && rowTable.sameAs(table);
+}
+
 async function frontmost(): Promise<App | undefined> {
   return App.foreground({ timeout: 0 }).catch(() => undefined);
 }
@@ -193,6 +203,7 @@ export const mac: Platform = {
   stableId: (el) => el.stableId ?? '',
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => rawString(el, 'ax_role'),
+  shownElsewhere: (column, cell, table) => inRowOf(table, column, cell),
   scrollTypes: new Set(['AXScrollArea']),
   menuButtonTypes: new Set(['AXPopUpButton']),
   settleAfterReleaseMs: 0,

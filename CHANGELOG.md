@@ -11,6 +11,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
   - On macOS, a static text has a `name`: its text, or its description when it has no text. Before, `name` was empty in Chromium apps and for a static text with no value.
   - In Chromium apps, a landmark has the tag `landmark`. Before, it had the tag `navigation` or `group`.
   - On Windows, the text area of Notepad (a Win32 Edit or RichEdit control) has the tag `text_area`. Before, it had the tag `web_area`.
+- **Breaking:** On macOS, each accessibility object is in the Page source one time. A table gives its rows and also its columns, and a column gives the cells that the rows of the table give. The Page source shows a cell only below its row. In the Spotify library, the Page source has 2912 elements in place of 4639, and it takes 0.59 s in place of 0.86 s. The paths of the other elements do not change.
 - On Windows, send keys to a field puts the text into the field's value, as on macOS and Linux. Before, the text went as Raw input, because xa11y 0.15.4 left the caret before the text that it put in.
 
 ### Fixed

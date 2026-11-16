@@ -38,6 +38,7 @@ const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
 
 export type RoleNames = Pick<Platform, 'platformRole' | 'scrollTypes' | 'menuButtonTypes'>;
+export type WalkRules = RoleNames & Pick<Platform, 'shownElsewhere'>;
 
 function isScrollable(el: Element, role: string, type: string, scrollTypes: ReadonlySet<string>): boolean {
   return SCROLL_ROLES.has(role) || scrollTypes.has(type)
@@ -122,7 +123,7 @@ interface Walk {
   nodes: Map<XmlElement, Node>;
   place: Place;
   limit: Limit;
-  names: RoleNames;
+  rules: WalkRules;
 }
 
 // An element can leave the tree between its parent's children() call and its own calls; it then counts as a leaf.
@@ -131,24 +132,34 @@ function read<T>(walk: Walk, node: Node, task: () => Promise<T>, gone: T): Promi
   return node === walk.root ? result : result.catch(() => gone);
 }
 
-// macOS gives an app with no window itself as its only child, which would make the walk endless.
-async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
-  for (const [k, v] of Object.entries(attributesOf(node.el, await read(walk, node, () => walk.place(node), UNPLACED), walk.names))) {
-    xml.setAttribute(k, v.replace(XML_INVALID, '').replace(LONE_SURROGATE, ''));
-  }
-  walk.nodes.set(xml, node);
+/** The children that the Page source shows at this node, with their raw indexes, so their paths stay the same. */
+async function shownKids(walk: Walk, node: Node, parent?: Element): Promise<Node[]> {
   const children = node.path.length >= MAX_DEPTH ? [] : await read(walk, node, () => node.el.children(), []);
+  // macOS gives an app with no window itself as its only child, which would make the walk endless.
   const kids = children
     .map((el, i) => ({ el, path: [...node.path, i] }))
     .filter((kid) => kid.el.role !== 'application');
-  const xmlKids = kids.map((kid) => xml.appendChild(walk.doc.createElement(tagFor(kid.el.role))) as XmlElement);
-  await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid)));
+  if (!parent) {
+    return kids;
+  }
+  const elsewhere = await Promise.all(kids.map((kid) => read(walk, kid, () => walk.rules.shownElsewhere(node.el, kid.el, parent), false)));
+  return kids.filter((_, i) => !elsewhere[i]);
 }
 
-export async function snapshot(root: Node, place: Place, names: RoleNames): Promise<Snapshot> {
+async function fill(walk: Walk, xml: XmlElement, node: Node, parent?: Element): Promise<void> {
+  for (const [k, v] of Object.entries(attributesOf(node.el, await read(walk, node, () => walk.place(node), UNPLACED), walk.rules))) {
+    xml.setAttribute(k, v.replace(XML_INVALID, '').replace(LONE_SURROGATE, ''));
+  }
+  walk.nodes.set(xml, node);
+  const kids = await shownKids(walk, node, parent);
+  const xmlKids = kids.map((kid) => xml.appendChild(walk.doc.createElement(tagFor(kid.el.role))) as XmlElement);
+  await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid, node.el)));
+}
+
+export async function snapshot(root: Node, place: Place, rules: WalkRules): Promise<Snapshot> {
   const doc = new DOMImplementation().createDocument(null, tagFor(root.el.role), null);
   const nodes = new Map<XmlElement, Node>();
-  await fill({ root, doc, nodes, place, limit: limiter(MAX_CONCURRENT), names }, doc.documentElement as XmlElement, root);
+  await fill({ root, doc, nodes, place, limit: limiter(MAX_CONCURRENT), rules }, doc.documentElement as XmlElement, root);
   return { doc, nodes };
 }
 

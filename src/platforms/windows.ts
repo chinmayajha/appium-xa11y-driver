@@ -113,6 +113,7 @@ export const windows: Platform = {
   stableId: (el) => rawString(el, 'automation_id'),
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => CONTROL_TYPES[Number(el.raw.control_type_id) - 50000] ?? '',
+  shownElsewhere: async () => false,
   scrollTypes: new Set(),
   menuButtonTypes: new Set(),
   settleAfterReleaseMs: 0,
