@@ -85,6 +85,12 @@ describe('editor', () => {
     await eventually(text, (v) => v.replace(/\r\n/g, '\n') === 'ac\nd');
   });
 
+  test('a line break that ends the text arrives after the text', async () => {
+    await s.clear(field);
+    await s.type(field, 'one\ntwo\n');
+    await eventually(text, (v) => v.replace(/\r\n/g, '\n') === 'one\ntwo\n');
+  });
+
   test('a handle does not move to a different element when the tree changes', { skip: !fx.editor.siblingBefore && 'no fixture inserts a sibling' }, async () => {
     const toggle = { keys: fx.editor.siblingBefore };
     await s.clear(field);

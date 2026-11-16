@@ -65,9 +65,15 @@ export class Input {
     let viaValue = this.platform.typeTextMovesCaret && Boolean(el && (el.editable || el.actions.includes('set_value')));
     // A single-line field drops a line break from its value, so Return and Tab go to it as keys.
     const singleLine = el !== undefined && !MULTILINE_ROLES.has(el.role);
+    const chars = [...text].map(typedChar);
+    // A line break that ends the text is the Return key that sends it (a chat message); inside the text it is a new line.
+    let end = chars.length;
+    while (end > 0 && chars[end - 1] in CONTROL_KEYS) {
+      end--;
+    }
     let run = '';
-    for (const ch of [...text].map(typedChar)) {
-      const key = keyFor(ch, viaValue && !singleLine);
+    for (const [i, ch] of chars.entries()) {
+      const key = keyFor(ch, viaValue && !singleLine && i < end);
       if (!key) {
         run += ch;
         continue;
