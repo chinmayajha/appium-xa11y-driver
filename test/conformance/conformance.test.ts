@@ -274,7 +274,8 @@ describe('editor', () => {
         await s.actions(keyboard([...keys('1'), { type: 'keyDown', value: '' }, ...keys('a'), { type: 'keyUp', value: '' }, ...keys('b')]));
         await eventually(text, (v) => v === '1Ab');
       } finally {
-        assert.equal(await tap.stop(), 0, 'the OS turned the fixture tap off');
+        const report = await tap.stop();
+        assert.ok(report.enabled && report.reenabled === 0 && report.held >= 16, `the fixture tap did not hold all 16 events: ${JSON.stringify(report)}`);
       }
     });
   }

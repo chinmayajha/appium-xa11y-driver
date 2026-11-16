@@ -71,6 +71,7 @@ func parse(_ args: ArraySlice<String>) -> Hold {
 
 var hold = Hold()
 var port: CFMachPort?
+var held = 0
 
 let callback: CGEventTapCallBack = { _, type, event, _ in
   if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -81,6 +82,7 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
   if hold.log {
     print("seen type=\(type.rawValue) source=\(event.getIntegerValueField(.eventSourceUnixProcessID)) data=\(event.getIntegerValueField(.eventSourceUserData))")
   }
+  held += 1
   usleep(hold.delayUs)
   return hold.drop ? nil : Unmanaged.passUnretained(event)
 }
@@ -100,7 +102,13 @@ case "hold":
   CFRunLoopAddSource(CFRunLoopGetCurrent(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
   CGEvent.tapEnable(tap: tap, enable: true)
   guard taps().contains(where: { $0.tappingProcess == getpid() && $0.enabled }) else { fail("the tap is not enabled") }
-  signal(SIGTERM) { _ in exit(0) }
+  signal(SIGTERM, SIG_IGN)
+  let term = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+  term.setEventHandler {
+    print("held=\(held) enabled=\(CGEvent.tapIsEnabled(tap: tap))")
+    exit(0)
+  }
+  term.resume()
   print("ready pid=\(getpid())")
   CFRunLoopRun()
 default:
