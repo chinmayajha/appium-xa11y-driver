@@ -4,12 +4,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
-### Fixed
-
-- In send keys, a Return or Tab that follows text set through the field's value waits 300 ms, so the app reads the text first. Before, Calendar's quick event dropped the Return in 2 of 6 tries.
-- In send keys, a line break that ends the text is the Return key, also in a text area or web area, so a chat message is sent. A line break inside the text stays part of the value. Before, Teams kept the message in the compose box.
-
-## [0.2.0]
+## [0.1.3]
 
 ### Added
 
@@ -30,6 +25,9 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 - Send keys to a field that accepts the accessibility call and keeps its value (Mac Catalyst apps such as WhatsApp) types the text as Raw input.
 - A click on an element that has the press action and refuses it (a text field in Calendar) is a Raw click.
 - The first click after the Session app comes to the front opens menus. Before, the app could drop that click.
+- In send keys, a Return or Tab that follows text set through the field's value waits 300 ms, so the app reads the text first. Before, Calendar's quick event dropped the Return in 2 of 6 tries.
+- In send keys, a line break that ends the text is the Return key, also in a text area or web area, so a chat message is sent. A line break inside the text stays part of the value. Before, Teams kept the message in the compose box.
+- The host setup scripts read the whole Appium status before they match it, so a `set -o pipefail` shell does not report a running Appium as not ready.
 
 ## [0.1.2]
 
