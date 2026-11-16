@@ -117,7 +117,7 @@ probe_url() {
 wait_for_appium() {
   local _
   for _ in $(seq 60); do
-    curl -sf "$(probe_url)" | grep -q '"ready"' && return 0
+    curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
     sleep 1
   done
   return 1

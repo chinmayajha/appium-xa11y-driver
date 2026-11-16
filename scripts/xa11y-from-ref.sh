@@ -20,7 +20,7 @@ npm run build
 # The published package takes its binary from a platform package, so the pack must carry the local build.
 npm pkg set 'files[]=*.node'
 tgz=$(npm pack --silent)
-tar -tzf "$tgz" | grep -q '\.node$'
+tar -tzf "$tgz" | grep '\.node$' > /dev/null
 cd "$driver"
 npm install --no-save --no-audit --no-fund "$src/xa11y-js/$tgz"
 npm run build
