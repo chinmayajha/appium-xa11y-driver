@@ -6,6 +6,9 @@ export interface Point {
   y: number;
 }
 
+/** The point as xa11y takes it: whole Desktop coordinates. */
+export const xy = (p: Point): [number, number] => [Math.round(p.x), Math.round(p.y)];
+
 /** Margins in points around a rect. */
 export interface Frame {
   left: number;
@@ -45,10 +48,8 @@ export interface Platform {
   pressKey(input: InputSim, key: string): Promise<void>;
   /** Release keys and return when the next synthetic key can no longer carry them. */
   releaseKeys(input: InputSim, keys: string[]): Promise<void>;
-  /** What the window's move and resize geometry adds around the visible frame that elementRect gives. */
+  /** What the window's move and resize geometry adds around the visible frame that the window bounds give. */
   windowShadow(win: Element): Promise<Frame>;
-  /** Bounds in Desktop coordinates, or null when the toolkit gives none that can be trusted. */
-  elementRect(el: Element, topLevel?: Element): Promise<Rect | null>;
   /** The Stable id, or an empty string when the app gives none. */
   stableId(el: Element): string;
   /** A key that names one element for the life of the app process, or an empty string when there is none. */
@@ -61,8 +62,6 @@ export interface Platform {
   readonly menuButtonTypes: ReadonlySet<string>;
   /** Wait after a pointer release before the next pointer event; some toolkits drop a click otherwise. */
   readonly settleAfterReleaseMs: number;
-  /** Whether the element typeText of xa11y leaves the caret after the text it inserts; when not, typing goes as Raw input. */
-  readonly typeTextMovesCaret: boolean;
   /** Ask the process, and on Linux its process group, to quit. */
   terminate(pid: number): void;
   /** When the process started, or undefined when it does not run or the OS cannot tell; it tells a process from a later one with the same pid. */

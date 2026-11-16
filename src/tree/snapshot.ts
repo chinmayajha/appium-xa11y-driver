@@ -8,8 +8,6 @@ export type Path = number[];
 export interface Node {
   el: Element;
   path: Path;
-  /** The top-level window that contains the element, when the walk knows it. */
-  top?: Element;
 }
 
 /** What the Platform adds to an element: bounds in Desktop coordinates and the Stable id. */
@@ -89,13 +87,6 @@ function tagFor(role: string): string {
   return /^[A-Za-z_][\w-]*$/.test(role) ? role : 'unknown';
 }
 
-function topFor(parent: Node, child: Element): Element | undefined {
-  if (parent.path.length === 0) {
-    return child;
-  }
-  return parent.top ?? (parent.path.length === 1 ? parent.el : undefined);
-}
-
 const MAX_DEPTH = 256;
 export const UNPLACED: Placement = { rect: null, id: '' };
 const MAX_CONCURRENT = 16;
@@ -148,7 +139,7 @@ async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
   walk.nodes.set(xml, node);
   const children = node.path.length >= MAX_DEPTH ? [] : await read(walk, node, () => node.el.children(), []);
   const kids = children
-    .map((el, i) => ({ el, path: [...node.path, i], top: topFor(node, el) }))
+    .map((el, i) => ({ el, path: [...node.path, i] }))
     .filter((kid) => kid.el.role !== 'application');
   const xmlKids = kids.map((kid) => xml.appendChild(walk.doc.createElement(tagFor(kid.el.role))) as XmlElement);
   await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid)));

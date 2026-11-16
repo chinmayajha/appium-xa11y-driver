@@ -1,6 +1,6 @@
 import { inputSim, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import type { Platform } from '../platforms';
+import { xy, type Platform } from '../platforms';
 import type { Screen } from '../screen';
 import type { Target } from '../target';
 import type { Tree } from '../tree';
@@ -55,14 +55,14 @@ export class Input {
     const at = await this.tree.visibleCenter(id);
     await this.guard(true);
     this.state.synced = false;
-    await this.sim.click([at.x, at.y]);
+    await this.sim.click(xy(at));
   }
 
   /** Put text into the element, or type it into the Frontmost app when no element is given. */
   async type(text: string, id?: string): Promise<void> {
     await this.front();
     const el = id === undefined ? undefined : await this.focus(id);
-    let viaValue = this.platform.typeTextMovesCaret && Boolean(el && (el.editable || el.actions.includes('set_value')));
+    let viaValue = Boolean(el && (el.editable || el.actions.includes('set_value')));
     // A single-line field drops a line break from its value, so Return and Tab go to it as keys.
     const singleLine = el !== undefined && !MULTILINE_ROLES.has(el.role);
     const chars = [...text].map(typedChar);

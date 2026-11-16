@@ -21,11 +21,6 @@ interface Handle extends Found {
   key: string;
 }
 
-interface Resolved {
-  el: Element;
-  top?: Element;
-}
-
 const ROLE_ATTRIBUTES = new Set(['role', 'className', 'class']);
 const PLACED_ATTRIBUTES = new Set(['x', 'y', 'width', 'height', 'visible', 'id']);
 const FIND_POLL_MS = 300;
@@ -68,10 +63,7 @@ export class Tree {
 
   constructor(private target: Target, private platform: Platform) {}
 
-  private place = async (node: Node): Promise<Placement> => ({
-    rect: await this.platform.elementRect(node.el, node.top),
-    id: this.platform.stableId(node.el),
-  });
+  private place = async (node: Node): Promise<Placement> => ({ rect: node.el.bounds, id: this.platform.stableId(node.el) });
 
   async source(): Promise<string> {
     return toXml(await snapshot({ el: this.target.app.asElement(), path: [] }, this.place, this.platform));
@@ -97,31 +89,29 @@ export class Tree {
   }
 
   async element(id: string): Promise<Element> {
-    return (await this.resolve(id)).el;
+    return this.resolve(id);
   }
 
   async rect(id: string): Promise<Rect | null> {
-    const { el, top } = await this.resolve(id);
-    return this.platform.elementRect(el, top);
+    return (await this.resolve(id)).bounds;
   }
 
   /** The part of the element that its scroll areas and window leave visible. */
   async visibleRect(id: string): Promise<Rect> {
-    const { el, top } = await this.resolve(id);
-    let r = await this.platform.elementRect(el, top);
+    const el = await this.resolve(id);
+    let r = el.bounds;
     if (!r) {
       throw new errors.InvalidElementStateError(`The ${el.role} element has no bounds on the screen`);
     }
     for (let p = await el.parent(); p; p = await p.parent()) {
-      r = clip(r, p.role === 'application' ? null : await this.platform.elementRect(p, top), el.role);
+      r = clip(r, p.role === 'application' ? null : p.bounds, el.role);
     }
     return r;
   }
 
   /** The Session app's main window, read again so a move or resize shows. */
   async windowRect(): Promise<Rect | null> {
-    const win = await this.target.window();
-    return this.platform.elementRect(win, win);
+    return (await this.target.window()).bounds;
   }
 
   async visibleCenter(id: string): Promise<Point> {
@@ -130,25 +120,25 @@ export class Tree {
   }
 
   async attribute(id: string, name: string): Promise<string | null> {
-    const { el, top } = await this.resolve(id);
+    const el = await this.resolve(id);
     if (ROLE_ATTRIBUTES.has(name)) {
       return el.role;
     }
     if (name === 'text') {
       return textOf(el, this.platform);
     }
-    const attrs = PLACED_ATTRIBUTES.has(name) ? await this.attributes(el, top) : attributesOf(el, UNPLACED, this.platform);
+    const attrs = PLACED_ATTRIBUTES.has(name) ? await this.attributes(el) : attributesOf(el, UNPLACED, this.platform);
     return attrs[name] ?? rawAttribute(el, name);
   }
 
   async state(id: string): Promise<{ enabled: boolean; selected: boolean; displayed: boolean }> {
-    const { el, top } = await this.resolve(id);
-    const attrs = await this.attributes(el, top);
+    const el = await this.resolve(id);
+    const attrs = await this.attributes(el);
     return { enabled: el.enabled, selected: el.selected || el.checked === 'on', displayed: attrs.visible === 'true' };
   }
 
-  private async attributes(el: Element, top?: Element): Promise<Record<string, string>> {
-    return attributesOf(el, await this.place({ el, path: [], top }), this.platform);
+  private async attributes(el: Element): Promise<Record<string, string>> {
+    return attributesOf(el, await this.place({ el, path: [] }), this.platform);
   }
 
   private remember(found: Found): string {
@@ -170,34 +160,32 @@ export class Tree {
     return h;
   }
 
-  private async walk(path: Path): Promise<Resolved> {
+  private async walk(path: Path): Promise<Element> {
     let el = this.target.app.asElement();
-    let top: Element | undefined;
     for (const i of path) {
       const next = (await el.children())[i];
       if (!next) {
         throw new errors.StaleElementReferenceError('The element is no longer in the tree');
       }
       el = next;
-      top ??= el;
     }
-    return { el, top };
+    return el;
   }
 
   /** Walks the handle's path; at the last step the one sibling with the handle's identity wins, because a change before it shifts the index. */
-  private async follow(h: Handle): Promise<Resolved> {
+  private async follow(h: Handle): Promise<Element> {
     const path = h.path ?? [];
     const parent = await this.walk(path.slice(0, -1));
     if (!path.length) {
       return parent;
     }
-    const kids = await parent.el.children();
+    const kids = await parent.children();
     const i = this.indexOf(h.el, kids, path[path.length - 1]);
     if (!kids[i]) {
       throw new errors.StaleElementReferenceError('The element is no longer in the tree');
     }
     h.path = [...path.slice(0, -1), i];
-    return { el: kids[i], top: parent.top ?? kids[i] };
+    return kids[i];
   }
 
   private indexOf(el: Element, kids: Element[], at: number): number {
@@ -218,12 +206,12 @@ export class Tree {
     return this.platform.identity(el) || (el.name ?? '');
   }
 
-  private async resolve(id: string): Promise<Resolved> {
+  private async resolve(id: string): Promise<Element> {
     const h = this.handle(id);
     if (this.target.app.pid !== h.pid) {
       throw new errors.StaleElementReferenceError('The element belongs to another app');
     }
-    const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.follow(h)).catch(async (e) => {
+    const found = await (h.locator ? h.locator.element() : this.follow(h)).catch(async (e) => {
       const err = asWebDriverError(e) as Error;
       // When the app has exited, the walk fails with a platform error (for example an AT-SPI NoReply), not with not-found.
       if (err instanceof errors.NoSuchElementError || !(await this.target.alive())) {
@@ -231,11 +219,11 @@ export class Tree {
       }
       throw err;
     });
-    const change = this.changed(h, found.el);
+    const change = this.changed(h, found);
     if (change) {
       throw new errors.StaleElementReferenceError(change);
     }
-    h.el = found.el;
+    h.el = found;
     return found;
   }
 
@@ -247,8 +235,7 @@ export class Tree {
     if (!h.path) {
       throw new errors.InvalidArgumentError('Searching inside an element found by -xa11y selector is not supported; use xpath');
     }
-    const { el, top } = await this.resolve(contextId);
-    return { el, path: h.path, top: h.path.length === 1 ? undefined : top };
+    return { el: await this.resolve(contextId), path: h.path };
   }
 
   private async byXpath(exprs: string[], context?: string): Promise<Found[]> {

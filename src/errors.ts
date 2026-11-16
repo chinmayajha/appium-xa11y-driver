@@ -6,15 +6,6 @@ export interface ErrorContext {
   creating?: boolean;
 }
 
-// xa11y 0.15.4 drops the error code on typed errors (docs/xa11y-gaps.md, item 14), so the message is the fallback.
-export const STALE_TEXT = /^(Element stale|stale window handle)/;
-export const NO_BOUNDS_TEXT = /^Element has no bounds/;
-
-function is(e: Error, code: string, text: RegExp): boolean {
-  const known = (e as { code?: string }).code;
-  return known === undefined ? text.test(e.message) : known === code;
-}
-
 /** A failure of the Host that the permission hint can help with. */
 export class HostError extends Error {}
 
@@ -28,10 +19,9 @@ function notPermitted(e: Error, ctx: ErrorContext): Error {
 type Rule = [new (...args: never[]) => Error, (e: Error, ctx: ErrorContext) => Error];
 
 const RULES: Rule[] = [
-  [xa.SelectorNotMatchedError, (e) => (is(e, 'XA11Y_ELEMENT_STALE', STALE_TEXT)
-    ? new errors.StaleElementReferenceError(e.message)
-    : new errors.NoSuchElementError(e.message))],
-  [xa.InvalidActionDataError, (e) => (is(e, 'XA11Y_NO_ELEMENT_BOUNDS', NO_BOUNDS_TEXT)
+  [xa.ElementStaleError, (e) => new errors.StaleElementReferenceError(e.message)],
+  [xa.SelectorNotMatchedError, (e) => new errors.NoSuchElementError(e.message)],
+  [xa.InvalidActionDataError, (e) => ((e as xa.XA11yError).code === 'XA11Y_NO_ELEMENT_BOUNDS'
     ? new errors.ElementNotInteractableError(e.message)
     : new errors.InvalidArgumentError(e.message))],
   [xa.TimeoutError, (e) => new errors.TimeoutError(e.message)],

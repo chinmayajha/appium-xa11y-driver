@@ -1,7 +1,7 @@
 import type { InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
-import type { Platform, Point } from '../platforms';
+import { xy, type Platform, type Point } from '../platforms';
 
 export type { Point };
 
@@ -124,15 +124,11 @@ function clickCount(a: Action, rest: Action[]): number {
   return again ? 2 : 1;
 }
 
-/** A platform that needs a settle after a release gets the clicks one by one, so its toolkit sees each press. */
 async function click(ctx: ActionContext, button: MouseButtonName, count: number): Promise<void> {
-  const each = ctx.platform.settleAfterReleaseMs > 0 ? 1 : count;
-  for (let sent = 0; sent < count; sent += each) {
-    await afterRelease(ctx);
-    await ctx.guard();
-    await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, count: each, held: heldModifiers(ctx.state) });
-    ctx.state.releasedAt = Date.now();
-  }
+  await afterRelease(ctx);
+  await ctx.guard();
+  await ctx.input.click(xy(ctx.state.pointer), { button, count, held: heldModifiers(ctx.state) });
+  ctx.state.releasedAt = Date.now();
   ctx.state.synced = true;
 }
 
