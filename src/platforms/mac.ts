@@ -6,7 +6,7 @@ import { App, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
 import { clearFlags, manualAccessibility, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
-import { NO_FRAME, type Platform } from './platform';
+import { NO_FRAME, xy, type Platform } from './platform';
 
 const run = promisify(execFile);
 const APP_DIRS = ['/Applications', '/System/Applications', '/System/Applications/Utilities', `${process.env.HOME}/Applications`];
@@ -160,12 +160,12 @@ export const mac: Platform = {
     });
   },
   async wheel(input, at, dx, dy) {
-    await input.moveTo([at.x, at.y]);
+    await input.moveTo(xy(at));
     await postPixelScroll(at, dx, dy);
   },
   async movePointer(input, to, held) {
     const [button] = held;
-    await (button ? postDrag(to, button) : input.moveTo([to.x, to.y]));
+    await (button ? postDrag(to, button) : input.moveTo(xy(to)));
   },
   pressButton: (_input, at, button) => postButton(at, button, true),
   releaseButton: (_input, at, button) => postButton(at, button, false),

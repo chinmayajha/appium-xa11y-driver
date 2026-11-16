@@ -1,7 +1,7 @@
 import type { InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
-import type { Platform, Point } from '../platforms';
+import { xy, type Platform, type Point } from '../platforms';
 
 export type { Point };
 
@@ -130,7 +130,7 @@ async function click(ctx: ActionContext, button: MouseButtonName, count: number)
   for (let sent = 0; sent < count; sent += each) {
     await afterRelease(ctx);
     await ctx.guard();
-    await ctx.input.click([ctx.state.pointer.x, ctx.state.pointer.y], { button, count: each, held: heldModifiers(ctx.state) });
+    await ctx.input.click(xy(ctx.state.pointer), { button, count: each, held: heldModifiers(ctx.state) });
     ctx.state.releasedAt = Date.now();
   }
   ctx.state.synced = true;

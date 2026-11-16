@@ -45,7 +45,7 @@ const fixtures: Record<string, Fixtures> = {
   windows: {
     platformName: 'Windows',
     primary: '',
-    editor: { app: 'notepad.exe', field: '//web_area', roles: ['web_area'], lineStart: 'Home' },
+    editor: { app: 'notepad.exe', field: '//text_area', roles: ['text_area'], lineStart: 'Home' },
     calculator: {
       app: 'calc.exe',
       buttons: { C: "//button[@id='81']", 7: "//button[@id='137']", 5: "//button[@id='135']", '+': "//button[@id='93']", '=': "//button[@id='121']" },

@@ -1,6 +1,6 @@
 import { inputSim, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import type { Platform } from '../platforms';
+import { xy, type Platform } from '../platforms';
 import type { Screen } from '../screen';
 import type { Target } from '../target';
 import type { Tree } from '../tree';
@@ -55,7 +55,7 @@ export class Input {
     const at = await this.tree.visibleCenter(id);
     await this.guard(true);
     this.state.synced = false;
-    await this.sim.click([at.x, at.y]);
+    await this.sim.click(xy(at));
   }
 
   /** Put text into the element, or type it into the Frontmost app when no element is given. */

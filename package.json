@@ -54,7 +54,7 @@
     "appium": "^3.5.2"
   },
   "dependencies": {
-    "@crowecawcaw/xa11y": "0.15.4",
+    "@crowecawcaw/xa11y": "0.16.0",
     "@xmldom/xmldom": "^0.9.12",
     "xpath": "^0.0.36"
   },

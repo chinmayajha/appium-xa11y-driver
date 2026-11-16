@@ -3,7 +3,7 @@ import { mac } from './mac';
 import { notSupportedYet, type Platform } from './platform';
 import { windows } from './windows';
 
-export type { Platform, Point } from './platform';
+export { xy, type Platform, type Point } from './platform';
 
 const PLATFORMS: Partial<Record<NodeJS.Platform, Platform>> = { darwin: mac, linux, win32: windows };
 

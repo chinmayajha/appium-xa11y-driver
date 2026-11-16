@@ -6,6 +6,9 @@ export interface Point {
   y: number;
 }
 
+/** The point as xa11y takes it: whole Desktop coordinates. */
+export const xy = (p: Point): [number, number] => [Math.round(p.x), Math.round(p.y)];
+
 /** Margins in points around a rect. */
 export interface Frame {
   left: number;

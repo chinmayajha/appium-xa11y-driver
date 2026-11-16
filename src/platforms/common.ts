@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import type { App, Element, InputSim, MouseButtonName } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import type { Point } from './platform';
+import { xy, type Point } from './platform';
 
 const WHEEL_PIXELS_PER_LINE = 20;
 
@@ -78,11 +78,11 @@ function wheelLines(pixels: number): number {
 }
 
 export async function lineWheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void> {
-  await input.scroll([at.x, at.y], wheelLines(dx), wheelLines(dy));
+  await input.scroll(xy(at), wheelLines(dx), wheelLines(dy));
 }
 
 export async function moveTo(input: InputSim, to: Point): Promise<void> {
-  await input.moveTo([to.x, to.y]);
+  await input.moveTo(xy(to));
 }
 
 export async function mouseDown(input: InputSim, _at: Point, button: MouseButtonName): Promise<void> {
