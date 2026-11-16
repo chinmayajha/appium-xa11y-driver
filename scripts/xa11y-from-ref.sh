@@ -24,3 +24,4 @@ tar -tzf "$tgz" | grep -q '\.node$'
 cd "$driver"
 npm install --no-save --no-audit --no-fund "$src/xa11y-js/$tgz"
 npm run build
+node "$driver/scripts/xa11y-loaded.mjs" "$driver" "$src/xa11y-js"
