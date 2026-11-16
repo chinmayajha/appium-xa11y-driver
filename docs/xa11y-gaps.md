@@ -139,9 +139,9 @@ Seen when the screen is locked: `['application']`, and that child also has the a
 
 ### 11. A chord does not wait until the modifiers are up
 
-**Status:** fixed in 0.16.0 ([xa11y #700](https://github.com/xa11y/xa11y/pull/700)): xa11y removes a modifier that it released from the events it posts until the session state no longer shows it. The driver keeps its workaround, because it is not tested on macOS with 0.16.0. Before the fix: in TextEdit, 3 of 100 to 12 of 200 chords fail, and a 100 ms wait gives 0 of 100. In the xa11y Cocoa test app's `Search` field, 174 of 200 fail on `main` 0c769d5 (after xa11y #695), 188 of 200 with 0.15.4, and 1 of 50 with a 500 ms wait. Issue: [xa11y #681](https://github.com/xa11y/xa11y/issues/681).
+**Status:** fixed in 0.16.0 ([xa11y #700](https://github.com/xa11y/xa11y/pull/700)): xa11y removes a modifier that it released from the events it posts until the session state no longer shows it. The driver uses `chord` and has no workaround. Before the fix: in TextEdit, 3 of 100 to 12 of 200 chords fail, and a 100 ms wait gives 0 of 100. In the xa11y Cocoa test app's `Search` field, 174 of 200 fail on `main` 0c769d5 (after xa11y #695), 188 of 200 with 0.15.4, and 1 of 50 with a 500 ms wait. Issue: [xa11y #681](https://github.com/xa11y/xa11y/issues/681).
 
-After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrives with Cmd. The driver sends the key-up events itself and waits until the event source shows no modifiers.
+After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrives with Cmd.
 
 ### 12. `typeText` in one call loses keys in Calculator
 
@@ -151,7 +151,7 @@ After `input.chord('u', ['Meta'])`, the next `input.press('i')` sometimes arrive
 
 ### 20. Keys after a function key get the Fn flag
 
-**Status:** fixed in 0.16.0 ([xa11y #687](https://github.com/xa11y/xa11y/pull/687)). The driver keeps its workaround, because it is not tested on macOS with 0.16.0. #687 made a modifier key-up copy stale flags, so Ctrl stayed held after a Cmd+Ctrl chord; xa11y #695 fixed that. In 0.15.4, after `press("Home")` or `press("F5")`, the session state keeps Fn, and the next keys copy it: `typeText("ab")` arrived as nothing, 20 of 20 times. The driver clears the flags after each function key.
+**Status:** fixed in 0.16.0 ([xa11y #687](https://github.com/xa11y/xa11y/pull/687)). #687 made a modifier key-up copy stale flags, so Ctrl stayed held after a Cmd+Ctrl chord; xa11y #695 fixed that. The driver has no workaround. In 0.15.4, after `press("Home")` or `press("F5")`, the session state keeps Fn, and the next keys copy it: `typeText("ab")` arrived as nothing, 20 of 20 times.
 
 ### 13. A second process cannot take a screenshot
 
@@ -161,7 +161,7 @@ If one process holds a ScreenCaptureKit capture, `screenshot()` in a second proc
 
 ### 22. A held button is pressed at (0, 0) and moves as a plain move
 
-**Status:** fixed in 0.16.0 ([xa11y #635](https://github.com/xa11y/xa11y/pull/635)). The driver keeps its workaround, because it is not tested on macOS with 0.16.0. In v0.15.4, `mouseDown` and `mouseUp` post the button event at `(0, 0)` (`git show v0.15.4:xa11y-macos/src/input.rs`, the `Point::new(0, 0)` lines), and `moveTo` always posts `kCGEventMouseMoved`.
+**Status:** fixed in 0.16.0 ([xa11y #635](https://github.com/xa11y/xa11y/pull/635)). The driver has no workaround. In v0.15.4, `mouseDown` and `mouseUp` post the button event at `(0, 0)` (`git show v0.15.4:xa11y-macos/src/input.rs`, the `Point::new(0, 0)` lines), and `moveTo` always posts `kCGEventMouseMoved`.
 
 ```js
 const input = xa11y.inputSim();
@@ -169,7 +169,7 @@ await input.moveTo([400, 300]);
 await input.mouseDown('left');
 ```
 
-The press lands on the Apple menu at the top-left corner, and the menu stays open. Expected: a press at `(400, 300)`. With a button held, `moveTo` must post the dragged event type, or the app sees no drag. The driver posts the press, the release and the move while a button is held with CoreGraphics at the pointer.
+The press lands on the Apple menu at the top-left corner, and the menu stays open. Expected: a press at `(400, 300)`. With a button held, `moveTo` must post the dragged event type, or the app sees no drag.
 
 ### 23. `activate` fails on a SwiftUI scene window
 
