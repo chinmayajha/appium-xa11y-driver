@@ -56,6 +56,8 @@ export interface Platform {
   identity(el: Element): string;
   /** The OS role name of the element, for the Page source `type` attribute. */
   platformRole(el: Element): string;
+  /** Whether the walk also reaches the child of the parent under another parent, so the Page source shows it there only; `grandparent` is the parent of `parent`. */
+  shownElsewhere(parent: Element, child: Element, grandparent: Element): Promise<boolean>;
   /** OS role names of scroll containers. */
   readonly scrollTypes: ReadonlySet<string>;
   /** OS role names of buttons that open a menu and share the combo_box role with a field. */

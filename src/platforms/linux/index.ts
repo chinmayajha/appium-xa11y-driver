@@ -157,6 +157,7 @@ export const linux: Platform = {
   stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),
   identity: (el) => `${String(el.raw.bus_name ?? '')}${String(el.raw.object_path ?? '')}`,
   platformRole: (el) => rawString(el, 'atspi_role'),
+  shownElsewhere: async () => false,
   scrollTypes: new Set(['scroll pane']),
   menuButtonTypes: new Set(),
   // GTK 4 loses a click when the pointer moves on in the same main-loop turn as the previous release (10 ms was enough on Xvfb).
