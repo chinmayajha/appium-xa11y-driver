@@ -190,14 +190,12 @@ export const mac: Platform = {
     await clearFlags(keys);
   },
   windowShadow: async () => NO_FRAME,
-  elementRect: async (el) => el.bounds,
   stableId: (el) => el.stableId ?? '',
   identity: (el) => el.stableId ?? '',
   platformRole: (el) => rawString(el, 'ax_role'),
   scrollTypes: new Set(['AXScrollArea']),
   menuButtonTypes: new Set(['AXPopUpButton']),
   settleAfterReleaseMs: 0,
-  typeTextMovesCaret: true,
   terminate: quit,
   startedAt,
   async runningPid(appId) {

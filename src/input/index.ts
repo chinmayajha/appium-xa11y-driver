@@ -62,7 +62,7 @@ export class Input {
   async type(text: string, id?: string): Promise<void> {
     await this.front();
     const el = id === undefined ? undefined : await this.focus(id);
-    let viaValue = this.platform.typeTextMovesCaret && Boolean(el && (el.editable || el.actions.includes('set_value')));
+    let viaValue = Boolean(el && (el.editable || el.actions.includes('set_value')));
     // A single-line field drops a line break from its value, so Return and Tab go to it as keys.
     const singleLine = el !== undefined && !MULTILINE_ROLES.has(el.role);
     const chars = [...text].map(typedChar);

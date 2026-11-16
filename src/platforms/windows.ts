@@ -102,15 +102,13 @@ export const windows: Platform = {
     return (await foreground())?.name;
   },
   activate: activateWindow,
-  // xa11y sends a positive dy to Windows as a forward wheel turn, which scrolls up.
-  wheel: (input, at, dx, dy) => lineWheel(input, at, dx, -dy),
+  wheel: lineWheel,
   movePointer: moveTo,
   pressButton: mouseDown,
   releaseButton: mouseUp,
   pressKey: tap,
   releaseKeys: keyUps,
   windowShadow: async () => NO_FRAME,
-  elementRect: async (el) => el.bounds,
   // xa11y gives the window handle where a control has one, and the handle changes every time the app starts.
   stableId: (el) => rawString(el, 'automation_id'),
   identity: (el) => el.stableId ?? '',
@@ -118,8 +116,6 @@ export const windows: Platform = {
   scrollTypes: new Set(),
   menuButtonTypes: new Set(),
   settleAfterReleaseMs: 0,
-  // Notepad: typeText('ab') then typeText('c') gives 'cab'.
-  typeTextMovesCaret: false,
   terminate: quit,
   startedAt: async (pid) => (await processInfo(pid))?.created,
   async runningPid(appId) {

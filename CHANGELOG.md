@@ -11,6 +11,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
   - On macOS, a static text has a `name`: its text, or its description when it has no text. Before, `name` was empty in Chromium apps and for a static text with no value.
   - In Chromium apps, a landmark has the tag `landmark`. Before, it had the tag `navigation` or `group`.
   - On Windows, the text area of Notepad (a Win32 Edit or RichEdit control) has the tag `text_area`. Before, it had the tag `web_area`.
+- On Windows, send keys to a field puts the text into the field's value, as on macOS and Linux. Before, the text went as Raw input, because xa11y 0.15.4 left the caret before the text that it put in.
 
 ### Fixed
 

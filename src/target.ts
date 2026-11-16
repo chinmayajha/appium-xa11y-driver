@@ -61,7 +61,7 @@ export class Target {
     } else if (ref.name) {
       this.current = await this.byName(ref.name, timeoutMs);
     } else {
-      this.current = await this.frontmost(timeoutMs);
+      this.current = await App.foreground({ timeout: timeoutMs });
     }
     return this.current;
   }
@@ -83,20 +83,6 @@ export class Target {
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-  }
-
-  /** xa11y names the window manager as the foreground app on X11, so the app with the active window wins where one has it. */
-  private async frontmost(timeoutMs: number): Promise<App> {
-    const front = await App.foreground({ timeout: timeoutMs }).catch(() => undefined);
-    if (front && await this.platform.isFrontmost(front).catch(() => true)) {
-      return front;
-    }
-    for (const app of await App.list()) {
-      if (await this.platform.isFrontmost(app).catch(() => false)) {
-        return app;
-      }
-    }
-    return front ?? App.foreground({ timeout: 0 });
   }
 
   async activate(): Promise<void> {
