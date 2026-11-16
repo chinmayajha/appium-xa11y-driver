@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { App, type Element, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, quit, rawString, startedAt } from './common';
-import { manualAccessibility, postPixelScroll, runningPids, screenRects } from './mac-events';
+import { manualAccessibility, runningPids, screenRects } from './mac-events';
 import { NO_FRAME, xy, type Platform } from './platform';
 
 const run = promisify(execFile);
@@ -168,10 +168,6 @@ export const mac: Platform = {
         throw e;
       }
     });
-  },
-  async wheel(input, at, dx, dy, held) {
-    await input.moveTo(xy(at));
-    await postPixelScroll(at, dx, dy, held);
   },
   async screens() {
     if (!screenRead || Date.now() - screenRead.at >= SCREENS_TTL_MS) {

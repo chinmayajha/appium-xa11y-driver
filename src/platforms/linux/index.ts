@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { App, type Element } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, groupRuns, lineWheel, quitGroup, rawString, spawnApp, startedAt } from '../common';
+import { activateWindow, groupRuns, quitGroup, rawString, spawnApp, startedAt } from '../common';
 import { NO_FRAME, type Frame, type Platform } from '../platform';
 import { isGtk4 } from './atspi';
 import { frameExtents } from './x11';
@@ -146,7 +146,6 @@ export const linux: Platform = {
     return undefined;
   },
   activate: activateWindow,
-  wheel: lineWheel,
   windowShadow,
   // xa11y gives the AT-SPI object path here, and it changes every time the app starts.
   stableId: (el) => (el.stableId?.startsWith('/') ? '' : el.stableId ?? ''),

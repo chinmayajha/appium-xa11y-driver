@@ -2,6 +2,7 @@ import type { InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
 import { xy, type Platform, type Point } from '../platforms';
+import { lineWheel } from '../platforms/common';
 
 export type { Point };
 
@@ -199,7 +200,7 @@ const ACTIONS: Record<string, Handler> = {
     await afterRelease(ctx);
     await ctx.guard();
     ctx.state.synced = false;
-    await ctx.platform.wheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0, heldModifiers(ctx.state));
+    await lineWheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0);
     return 0;
   },
 };

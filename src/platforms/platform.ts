@@ -1,4 +1,4 @@
-import type { App, Element, InputSim, Rect } from '@crowecawcaw/xa11y';
+import type { App, Element, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 export interface Point {
@@ -34,8 +34,6 @@ export interface Platform {
   frontmostName(): Promise<string | undefined>;
   /** Make the app's window the active window. */
   activate(app: App, window?: Element): Promise<void>;
-  /** Scroll by W3C wheel deltas in pixels, with the modifier keys that the actions hold: positive dx goes right, positive dy goes down. */
-  wheel(input: InputSim, at: Point, dx: number, dy: number, held: string[]): Promise<void>;
   /** The rect of each screen that the pointer can reach, read without a screen capture, where the OS gives one. */
   screens?(): Promise<Rect[]>;
   /** What the window's move and resize geometry adds around the visible frame that the window bounds give. */
