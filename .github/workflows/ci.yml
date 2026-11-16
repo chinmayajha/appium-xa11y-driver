@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      xa11y_ref:
+        description: Run with xa11y built from owner/repo@ref in place of the pinned release
+        required: false
 
 permissions:
   contents: read
@@ -20,7 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: shellcheck hosts/linux/setup.sh hosts/mac/setup.sh
+      - run: shellcheck hosts/linux/setup.sh hosts/mac/setup.sh scripts/xa11y-from-ref.sh
       - name: Parse the Windows setup script
         shell: pwsh
         run: |
@@ -36,11 +41,21 @@ jobs:
     needs: static
     runs-on: ubuntu-latest
     container: debian:13
-    timeout-minutes: 20
+    timeout-minutes: ${{ inputs.xa11y_ref && 40 || 20 }}
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - run: hosts/linux/setup.sh --driver . --fixtures --no-service
       - run: echo "$HOME/.local/share/appium-xa11y/node/bin" >> "$GITHUB_PATH"
+      - name: Use xa11y from xa11y_ref
+        if: inputs.xa11y_ref
+        env:
+          XA11Y_REF: ${{ inputs.xa11y_ref }}
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git build-essential pkg-config libxkbcommon-dev libevdev-dev
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          . "$HOME/.cargo/env"
+          scripts/xa11y-from-ref.sh "$XA11Y_REF"
       - name: Start Appium
         run: |
           ~/.local/share/appium-xa11y/host.sh run > appium.log 2>&1 &
@@ -57,6 +72,8 @@ jobs:
 
   docker:
     needs: static
+    # The image installs the pinned xa11y from npm.
+    if: ${{ !inputs.xa11y_ref }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -78,7 +95,7 @@ jobs:
   macos:
     needs: static
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ inputs.xa11y_ref && 40 || 20 }}
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -104,6 +121,11 @@ jobs:
       # Inline predictions put a predicted word into the value of a TextEdit text area.
       - run: defaults write -g NSAutomaticInlinePredictionEnabled -bool false
       - run: hosts/mac/setup.sh --driver . --no-service
+      - name: Use xa11y from xa11y_ref
+        if: inputs.xa11y_ref
+        env:
+          XA11Y_REF: ${{ inputs.xa11y_ref }}
+        run: scripts/xa11y-from-ref.sh "$XA11Y_REF"
       - name: Start Appium
         run: |
           "$HOME/Library/Application Support/appium-xa11y/host.sh" run > appium.log 2>&1 &
@@ -121,7 +143,7 @@ jobs:
   windows:
     needs: static
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ inputs.xa11y_ref && 40 || 20 }}
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -131,6 +153,12 @@ jobs:
       - name: Prepare the Host
         shell: powershell
         run: hosts/windows/setup.ps1 -Driver . -NoService
+      - name: Use xa11y from xa11y_ref
+        if: inputs.xa11y_ref
+        shell: bash
+        env:
+          XA11Y_REF: ${{ inputs.xa11y_ref }}
+        run: scripts/xa11y-from-ref.sh "$XA11Y_REF"
       - name: Start Appium
         shell: bash
         run: |
