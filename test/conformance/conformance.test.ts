@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { DOMParser, type Element as XmlElement } from '@xmldom/xmldom';
 import xpath from 'xpath';
-import { ELEMENT, Session, eventually, pngSize, rejectsWith } from './client';
+import { ELEMENT, Session, WebDriverError, eventually, pngSize, rejectsWith } from './client';
 import { fixturesFor } from './fixtures';
+import { TAP_FIXTURE, holdTap, onHost } from './taps';
 
 const URL = process.env.CONFORMANCE_URL ?? 'http://127.0.0.1:4723';
 const fx = fixturesFor(process.env.CONFORMANCE_OS ?? 'mac');
+const fixtureTaps = (process.env.CONFORMANCE_OS ?? 'mac') === 'mac' && onHost(URL);
 const CONTRACT = ['type', 'name', 'value', 'label', 'id', 'enabled', 'visible', 'focused', 'selected', 'checked',
   'clickable', 'checkable', 'editable', 'scrollable'];
 const BOUNDS = ['x', 'y', 'width', 'height'];
@@ -258,6 +261,35 @@ describe('editor', () => {
     await s.clear(field);
     await s.execute('xa11y: focusWindow');
     await eventually(async () => s.actions(keyboard(keys('o', 'k'))).then(() => true, () => false), Boolean);
+    await eventually(text, (v) => v === 'ok');
+  });
+
+  for (const location of ['hid', 'session']) {
+    test(`raw keys and chords arrive through a slow filtering tap at the ${location} location`, { skip: !fixtureTaps && 'a fixture tap runs only on a macOS Host that runs the tests' }, async () => {
+      await s.clear(field);
+      const tap = await holdTap(['--location', location, '--events', 'keys,flags', '--delay-ms', '200']);
+      try {
+        // Digits, because TextEdit capitalizes a first letter some time later, and that removes the selection.
+        await s.actions(keyboard(keys('4', '2')));
+        await s.execute('xa11y: chord', { keys: 'primary+a' });
+        await s.actions(keyboard([...keys('1'), { type: 'keyDown', value: '' }, ...keys('a'), { type: 'keyUp', value: '' }, ...keys('b')]));
+        await eventually(text, (v) => v === '1Ab');
+      } finally {
+        const report = await tap.stop();
+        assert.ok(report.enabled && report.reenabled === 0 && report.held >= 16, `the fixture tap did not hold all 16 events: ${JSON.stringify(report)}`);
+      }
+    });
+  }
+
+  test('a tap that drops raw keys gives an error that names its program', { skip: !fixtureTaps && 'a fixture tap runs only on a macOS Host that runs the tests' }, async () => {
+    await s.clear(field);
+    const tap = await holdTap(['--location', 'session', '--events', 'keys', '--drop']);
+    try {
+      await assert.rejects(s.actions(keyboard(keys('a'))), (e: unknown) => e instanceof WebDriverError && e.message.includes(path.basename(TAP_FIXTURE)));
+    } finally {
+      await tap.stop();
+    }
+    await s.actions(keyboard(keys('o', 'k')));
     await eventually(text, (v) => v === 'ok');
   });
 });

@@ -2,6 +2,7 @@ import type { InputSim, MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { MODIFIERS, w3cKey } from './keys';
 import { xy, type Platform, type Point } from '../platforms';
+import { lineWheel } from '../platforms/common';
 
 export type { Point };
 
@@ -103,7 +104,7 @@ async function onDesktop(ctx: ActionContext, to: Point): Promise<Point> {
 
 async function atPointer(ctx: ActionContext): Promise<void> {
   if (!ctx.state.synced) {
-    await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
+    await ctx.input.moveTo(xy(ctx.state.pointer));
     ctx.state.synced = true;
   }
 }
@@ -150,7 +151,7 @@ const ACTIONS: Record<string, Handler> = {
       t = i >= MAX_MOVE_STEPS ? 1 : Math.min(duration ? (Date.now() - start) / duration : 1, i / least);
       await ctx.guard();
       ctx.state.pointer = t < 1 ? { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t } : to;
-      await ctx.platform.movePointer(ctx.input, ctx.state.pointer, ctx.state.buttons);
+      await ctx.input.moveTo(xy(ctx.state.pointer));
       ctx.state.synced = true;
     }
     return 0;
@@ -166,13 +167,13 @@ const ACTIONS: Record<string, Handler> = {
     await ctx.guard();
     await atPointer(ctx);
     ctx.state.buttons.add(button);
-    await ctx.platform.pressButton(ctx.input, ctx.state.pointer, button);
+    await ctx.input.mouseDown(button);
     return 0;
   },
   async pointerUp(ctx, a) {
     const button = buttonOf(a);
     await atPointer(ctx);
-    await ctx.platform.releaseButton(ctx.input, ctx.state.pointer, button);
+    await ctx.input.mouseUp(button);
     ctx.state.buttons.delete(button);
     ctx.state.releasedAt = Date.now();
     return 0;
@@ -181,7 +182,7 @@ const ACTIONS: Record<string, Handler> = {
     const key = w3cKey(a.value ?? '');
     await ctx.guard();
     if (pairedKeyUp(key, rest[0])) {
-      await ctx.platform.pressKey(ctx.input, key);
+      await ctx.input.press(key);
       return 1;
     }
     ctx.state.keys.add(key);
@@ -190,7 +191,7 @@ const ACTIONS: Record<string, Handler> = {
   },
   async keyUp(ctx, a) {
     const key = w3cKey(a.value ?? '');
-    await ctx.platform.releaseKeys(ctx.input, [key]);
+    await ctx.input.keyUp(key);
     ctx.state.keys.delete(key);
     return 0;
   },
@@ -199,24 +200,10 @@ const ACTIONS: Record<string, Handler> = {
     await afterRelease(ctx);
     await ctx.guard();
     ctx.state.synced = false;
-    await ctx.platform.wheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0);
+    await lineWheel(ctx.input, at, a.deltaX ?? 0, a.deltaY ?? 0);
     return 0;
   },
 };
-
-// xa11y's chord does not wait for its modifier release, so a key sent right after it can still carry the modifiers.
-export async function pressChord(platform: Platform, input: InputSim, key: string, held: string[]): Promise<void> {
-  const down: string[] = [];
-  try {
-    for (const m of held) {
-      await input.keyDown(m);
-      down.push(m);
-    }
-    await platform.pressKey(input, key);
-  } finally {
-    await platform.releaseKeys(input, down.reverse());
-  }
-}
 
 async function dispatch(ctx: ActionContext, a: Action, rest: Action[]): Promise<number> {
   if (a.type === 'pointerCancel') {
@@ -293,9 +280,11 @@ export async function release(ctx: ActionContext): Promise<void> {
   const failures: unknown[] = [];
   try {
     for (const button of ctx.state.buttons) {
-      await attempt(failures, () => ctx.platform.releaseButton(ctx.input, ctx.state.pointer, button));
+      await attempt(failures, () => ctx.input.mouseUp(button));
     }
-    await attempt(failures, () => ctx.platform.releaseKeys(ctx.input, [...ctx.state.keys]));
+    for (const key of ctx.state.keys) {
+      await attempt(failures, () => ctx.input.keyUp(key));
+    }
   } finally {
     ctx.state.buttons.clear();
     ctx.state.keys.clear();

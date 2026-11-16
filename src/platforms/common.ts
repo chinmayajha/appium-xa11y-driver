@@ -1,7 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import type { App, Element, InputSim, MouseButtonName } from '@crowecawcaw/xa11y';
+import type { App, Element, InputSim } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { xy, type Point } from './platform';
 
@@ -79,28 +79,6 @@ function wheelLines(pixels: number): number {
 
 export async function lineWheel(input: InputSim, at: Point, dx: number, dy: number): Promise<void> {
   await input.scroll(xy(at), wheelLines(dx), wheelLines(dy));
-}
-
-export async function moveTo(input: InputSim, to: Point): Promise<void> {
-  await input.moveTo(xy(to));
-}
-
-export async function mouseDown(input: InputSim, _at: Point, button: MouseButtonName): Promise<void> {
-  await input.mouseDown(button);
-}
-
-export async function mouseUp(input: InputSim, _at: Point, button: MouseButtonName): Promise<void> {
-  await input.mouseUp(button);
-}
-
-export async function tap(input: InputSim, key: string): Promise<void> {
-  await input.press(key);
-}
-
-export async function keyUps(input: InputSim, keys: string[]): Promise<void> {
-  for (const k of keys) {
-    await input.keyUp(k);
-  }
 }
 
 export async function mainWindow(app: App): Promise<Element | undefined> {

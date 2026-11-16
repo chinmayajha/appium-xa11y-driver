@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { App } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
-import { activateWindow, keyUps, lineWheel, mouseDown, mouseUp, moveTo, quit, rawString, spawnApp, tap } from './common';
+import { activateWindow, quit, rawString, spawnApp } from './common';
 import { NO_FRAME, type Platform } from './platform';
 
 /** The app name of the process that a launcher started, by the app id that was launched. */
@@ -102,12 +102,6 @@ export const windows: Platform = {
     return (await foreground())?.name;
   },
   activate: activateWindow,
-  wheel: lineWheel,
-  movePointer: moveTo,
-  pressButton: mouseDown,
-  releaseButton: mouseUp,
-  pressKey: tap,
-  releaseKeys: keyUps,
   windowShadow: async () => NO_FRAME,
   // xa11y gives the window handle where a control has one, and the handle changes every time the app starts.
   stableId: (el) => rawString(el, 'automation_id'),

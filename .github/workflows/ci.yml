@@ -118,6 +118,15 @@ jobs:
              VALUES('kTCCServiceScreenCapture','${CLIENT}',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
           sudo launchctl stop com.apple.tccd || true
           sleep 2
+      - name: Build the fixture tap and grant it Accessibility
+        run: |
+          echo "TAP_FIXTURE=$RUNNER_TEMP/appium-xa11y-taps" >> "$GITHUB_ENV"
+          swiftc -O test/conformance/mac/taps.swift -o "$RUNNER_TEMP/appium-xa11y-taps"
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+            "INSERT OR REPLACE INTO access(service,client,client_type,auth_value,auth_reason,auth_version,csreq,policy_id,indirect_object_identifier_type,indirect_object_identifier,indirect_object_code_identity,flags,last_modified) \
+             VALUES('kTCCServiceAccessibility','$RUNNER_TEMP/appium-xa11y-taps',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$(date +%s));"
+          sudo launchctl stop com.apple.tccd || true
+          sleep 2
       # Inline predictions put a predicted word into the value of a TextEdit text area.
       - run: defaults write -g NSAutomaticInlinePredictionEnabled -bool false
       - run: hosts/mac/setup.sh --driver . --no-service

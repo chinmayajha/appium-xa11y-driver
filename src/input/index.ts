@@ -4,7 +4,7 @@ import { xy, type Platform } from '../platforms';
 import type { Screen } from '../screen';
 import type { Target } from '../target';
 import type { Tree } from '../tree';
-import { newInputState, perform, pressChord, release, type ActionContext, type ActionSequence } from './actions';
+import { newInputState, perform, release, type ActionContext, type ActionSequence } from './actions';
 import { isSpecialKey, parseChord, w3cKey } from './keys';
 
 // Raw keyboard input on Linux cannot type control characters, so they are sent as the keys that make them.
@@ -85,7 +85,7 @@ export class Input {
       viaValue = false;
       run = '';
       await this.guard();
-      await this.platform.pressKey(this.sim, key);
+      await this.sim.press(key);
     }
     await this.typeRun(run, viaValue ? el : undefined, id);
   }
@@ -132,7 +132,7 @@ export class Input {
   async chord(keys: string): Promise<void> {
     const chord = parseChord(keys, this.platform.primaryModifier);
     await this.guard(true);
-    await pressChord(this.platform, this.sim, chord.key, chord.held);
+    await this.sim.chord(chord.key, chord.held);
   }
 
   async perform(actions: ActionSequence[]): Promise<void> {
