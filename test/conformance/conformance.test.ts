@@ -269,7 +269,8 @@ describe('editor', () => {
       await s.clear(field);
       const tap = await holdTap(['--location', location, '--events', 'keys,flags', '--delay-ms', '200']);
       try {
-        await s.actions(keyboard(keys('r', 'm')));
+        // Digits, because TextEdit capitalizes a first letter some time later, and that removes the selection.
+        await s.actions(keyboard(keys('4', '2')));
         await s.execute('xa11y: chord', { keys: 'primary+a' });
         await s.actions(keyboard([...keys('1'), { type: 'keyDown', value: '' }, ...keys('a'), { type: 'keyUp', value: '' }, ...keys('b')]));
         await eventually(text, (v) => v === '1Ab');
