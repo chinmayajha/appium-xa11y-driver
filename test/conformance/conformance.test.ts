@@ -651,6 +651,18 @@ describe('attach', () => {
   });
 });
 
+describe('host status', () => {
+  test('GET /xa11y/status gives the Host OS without a session, and on macOS its permissions', async () => {
+    const res = await fetch(`${URL}/xa11y/status`);
+    assert.equal(res.status, 200);
+    const { value } = await res.json() as { value: Record<string, unknown> };
+    assert.equal(value.platformName, fx.platformName);
+    if (fx.platformName === 'Mac') {
+      assert.deepEqual([value.accessibility, value.screenRecording, value.next], [true, true, undefined]);
+    }
+  });
+});
+
 describe('session errors', () => {
   test('a failed command with failureArtifacts still gives its own error', async () => {
     const s = await open(fx.editor.app, { 'appium:failureArtifacts': '/tmp/appium-xa11y-artifacts' });

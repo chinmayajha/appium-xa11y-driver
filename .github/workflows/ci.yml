@@ -63,6 +63,13 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
+      - name: host.sh stops when a different Appium holds its port
+        shell: bash
+        run: |
+          rc=0
+          out=$(timeout 60 ~/.local/share/appium-xa11y/host.sh run 2>&1) || rc=$?
+          echo "$out"
+          [ "$rc" != 0 ] && grep 'port 4723 is in use by pid [0-9]* (.*appium' <<<"$out" > /dev/null
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -133,6 +140,25 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os mac
+      - name: setup.sh stops when a different Appium holds its port
+        run: |
+          rc=0
+          out=$(hosts/mac/setup.sh --driver . 2>&1) || rc=$?
+          echo "$out"
+          [ "$rc" != 0 ] && grep 'port 4723 is in use by pid [0-9]* (.*appium' <<<"$out" > /dev/null
+      - name: setup.sh names what the LaunchAgent still needs
+        run: |
+          out=$(hosts/mac/setup.sh --driver . --port 4724 2>&1)
+          echo "$out"
+          grep -F "to $HOME/Library/Application Support/appium-xa11y/node/bin/node in" <<<"$out" > /dev/null
+          grep -F "launchctl kickstart -k gui/$(id -u)/appium-xa11y" <<<"$out" > /dev/null
+      - name: setup.sh runs again while its own LaunchAgent holds the port
+        run: |
+          out=$(hosts/mac/setup.sh --driver . --port 4724 2>&1)
+          echo "$out"
+          grep -F "Appium listens on http://127.0.0.1:4724" <<<"$out" > /dev/null
+      - name: setup.sh finishes with a driver that has no status route
+        run: hosts/mac/setup.sh --driver appium-xa11y-driver@0.1.3 --port 4724
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -167,6 +193,18 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os windows
+      - name: setup.ps1 stops when a different Appium holds its port
+        shell: bash
+        run: |
+          rc=0
+          out=$(powershell -NoProfile -ExecutionPolicy Bypass -File hosts/windows/setup.ps1 -Driver . 2>&1) || rc=$?
+          echo "$out"
+          [ "$rc" != 0 ] && tr -d '\r\n' <<<"$out" | grep 'port 4723 is in use by pid [0-9]* (.*appium' > /dev/null
+      - name: setup.ps1 starts its logon task and runs again over it
+        shell: powershell
+        run: |
+          hosts/windows/setup.ps1 -Driver . -Port 4724
+          hosts/windows/setup.ps1 -Driver . -Port 4724
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -3,11 +3,12 @@ import { promisify } from 'node:util';
 import type { MouseButtonName, Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { HostError } from '../errors';
+import type { Permissions } from './platform';
 
 const run = promisify(execFile);
 
-function jxa(script: string, args: (string | number)[]): Promise<{ stdout: string }> {
-  return run('osascript', ['-l', 'JavaScript', '-e', script, '--', ...args.map(String)]);
+function jxa(script: string, args: (string | number)[], timeout = 0): Promise<{ stdout: string }> {
+  return run('osascript', ['-l', 'JavaScript', '-e', script, '--', ...args.map(String)], { timeout });
 }
 
 // Wheel-inverting tools (Unnatural Scroll Wheels, Mos, Scroll Reverser) flip line events and
@@ -136,6 +137,20 @@ export async function clearFlags(keys: string[]): Promise<void> {
   if (mask && (await jxa(CLEAR_FLAGS, [mask])).stdout.trim() === 'held') {
     throw new errors.UnknownError(`${keys.join(', ')} still held 1 s after the release, so the next key would carry them`);
   }
+}
+
+const GRANTS = `ObjC.import('ApplicationServices');
+ObjC.import('CoreGraphics');
+ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]);
+ObjC.bindFunction('responsibility_get_pid_responsible_for_pid', ['int', ['int']]);
+function run(argv) {
+  return [$.AXIsProcessTrusted(), $.CGPreflightScreenCaptureAccess(), $.responsibility_get_pid_responsible_for_pid(Number(argv[0]))].join(' ');
+}`;
+
+/** The grants of this process, which TCC gives through its responsible process: the app that started it, or the process itself. */
+export async function grants(): Promise<Pick<Permissions, 'accessibility' | 'screenRecording'> & { responsiblePid: number }> {
+  const [accessibility, screenRecording, responsible] = (await jxa(GRANTS, [process.pid], 5000)).stdout.trim().split(' ');
+  return { accessibility: accessibility === 'true', screenRecording: screenRecording === 'true', responsiblePid: Number(responsible) };
 }
 
 const MANUAL_ACCESSIBILITY = `ObjC.import('ApplicationServices');

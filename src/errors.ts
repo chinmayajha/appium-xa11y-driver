@@ -2,7 +2,7 @@ import * as xa from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 export interface ErrorContext {
-  hint?: string;
+  hint?: (denied: boolean) => Promise<string>;
   creating?: boolean;
 }
 
@@ -18,14 +18,17 @@ function is(e: Error, code: string, text: RegExp): boolean {
 /** A failure of the Host that the permission hint can help with. */
 export class HostError extends Error {}
 
-const withHint = (m: string, hint = '') => (hint ? `${m}. ${hint}` : m);
+async function withHint(m: string, ctx: ErrorContext, denied = false): Promise<string> {
+  const hint = await ctx.hint?.(denied);
+  return hint ? `${m}. ${hint}` : m;
+}
 
-function notPermitted(e: Error, ctx: ErrorContext): Error {
-  const m = withHint(e.message, ctx.hint);
+async function notPermitted(e: Error, ctx: ErrorContext): Promise<Error> {
+  const m = await withHint(e.message, ctx, true);
   return ctx.creating ? new errors.SessionNotCreatedError(m) : new errors.UnknownError(m);
 }
 
-type Rule = [new (...args: never[]) => Error, (e: Error, ctx: ErrorContext) => Error];
+type Rule = [new (...args: never[]) => Error, (e: Error, ctx: ErrorContext) => Error | Promise<Error>];
 
 const RULES: Rule[] = [
   [xa.SelectorNotMatchedError, (e) => (is(e, 'XA11Y_ELEMENT_STALE', STALE_TEXT)
@@ -39,11 +42,11 @@ const RULES: Rule[] = [
   [xa.InvalidSelectorError, (e) => new errors.InvalidSelectorError(e.message)],
   [xa.PermissionDeniedError, notPermitted],
   [xa.AccessibilityNotEnabledError, notPermitted],
-  [xa.PlatformError, (e, ctx) => new errors.UnknownError(withHint(e.message, ctx.hint))],
-  [HostError, (e, ctx) => new errors.UnknownError(withHint(e.message, ctx.hint))],
+  [xa.PlatformError, async (e, ctx) => new errors.UnknownError(await withHint(e.message, ctx))],
+  [HostError, async (e, ctx) => new errors.UnknownError(await withHint(e.message, ctx))],
 ];
 
-export function asWebDriverError(e: unknown, ctx: ErrorContext = {}): unknown {
+export async function asWebDriverError(e: unknown, ctx: ErrorContext = {}): Promise<unknown> {
   if (!(e instanceof Error) || 'w3cStatus' in e) {
     return e;
   }

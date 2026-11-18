@@ -224,7 +224,7 @@ export class Tree {
       throw new errors.StaleElementReferenceError('The element belongs to another app');
     }
     const found = await (h.locator ? h.locator.element().then((el) => ({ el })) : this.follow(h)).catch(async (e) => {
-      const err = asWebDriverError(e) as Error;
+      const err = await asWebDriverError(e) as Error;
       // When the app has exited, the walk fails with a platform error (for example an AT-SPI NoReply), not with not-found.
       if (err instanceof errors.NoSuchElementError || !(await this.target.alive())) {
         throw new errors.StaleElementReferenceError(`The element is no longer in the tree: ${err.message}`);

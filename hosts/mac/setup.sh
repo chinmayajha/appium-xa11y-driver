@@ -7,6 +7,10 @@ APPIUM_VERSION="${APPIUM_VERSION:-3.9.0}"
 XA11Y_HOME="${XA11Y_HOME:-$HOME/Library/Application Support/appium-xa11y}"
 LABEL=appium-xa11y
 AGENT="$HOME/Library/LaunchAgents/$LABEL.plist"
+ALL_GRANTS='Accessibility and Screen & System Audio Recording'
+# osascript gets the grants of the terminal app that runs this script, as host.sh run does.
+TERMINAL_GRANTS="ObjC.import('ApplicationServices'); ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]);
+[\$.AXIsProcessTrusted() ? '' : 'Accessibility', \$.CGPreflightScreenCaptureAccess() ? '' : 'Screen & System Audio Recording'].filter(Boolean).join(' and ')"
 
 usage() {
   cat <<'EOF'
@@ -106,27 +110,59 @@ write_env() {
   install -m 0755 "${BASH_SOURCE[0]}" "$XA11Y_HOME/host.sh"
 }
 
-probe_url() {
+base_url() {
   case "$ADDRESS" in
-    0.0.0.0 | ::) printf 'http://127.0.0.1:%s/status' "$PORT" ;;
-    *:*) printf 'http://[%s]:%s/status' "$ADDRESS" "$PORT" ;;
-    *) printf 'http://%s:%s/status' "$ADDRESS" "$PORT" ;;
+    0.0.0.0 | ::) printf 'http://127.0.0.1:%s' "$PORT" ;;
+    *:*) printf 'http://[%s]:%s' "$ADDRESS" "$PORT" ;;
+    *) printf 'http://%s:%s' "$ADDRESS" "$PORT" ;;
   esac
 }
 
+probe_url() { printf '%s/status' "$(base_url)"; }
+
+status_url() { printf '%s/xa11y/status' "$(base_url)"; }
+
+port_holder() {
+  local own="${1:-none}" pids pid rc=0
+  pids=$(lsof -nP -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
+  pid=$(printf '%s\n' "$pids" | grep -vx -e "$own" -e '' | sed -n 1p || true)
+  if [ -n "$pid" ]; then
+    printf 'pid %s (%s)' "$pid" "$(ps -o command= -p "$pid")"
+    return 0
+  fi
+  printf '%s\n' "$pids" | grep -x -e "$own" > /dev/null && return 1
+  # lsof does not show the sockets of other users, but a connection still reaches them.
+  curl -s -o /dev/null --max-time 2 "$(probe_url)" || rc=$?
+  [ "$rc" = 7 ] && return 1
+  printf 'a process of a different user'
+}
+
+require_free_port() {
+  local holder
+  holder=$(port_holder "${1:-}") || return 0
+  die "port $PORT is in use by $holder. Stop that process, or run setup.sh again with --port <a free port>"
+}
+
+agent_pid() { launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | awk '$1 == "pid" { print $3 }' || true; }
+
 wait_for_appium() {
-  local _
+  local _ pid
   for _ in $(seq 60); do
-    curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    pid=$(agent_pid)
+    if [ -n "$pid" ] && lsof -nP -a -p "$pid" -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+      curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    fi
     sleep 1
   done
   return 1
 }
 
+running() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
+
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
 install_agent() {
-  local program log
+  local program log old _
   program=$(xml_escape "$XA11Y_HOME/host.sh")
   log=$(xml_escape "$HOME/Library/Logs/$LABEL.log")
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -145,23 +181,61 @@ install_agent() {
 </dict>
 </plist>
 EOF
+  old=$(agent_pid)
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  for _ in $(seq 50); do
+    running "$old" || break
+    sleep 0.2
+  done
+  running "$old" && die "the old LaunchAgent (pid $old) did not stop"
+  require_free_port
   launchctl bootstrap "gui/$(id -u)" "$AGENT"
   wait_for_appium || die "Appium did not start. See ~/Library/Logs/$LABEL.log"
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
 }
 
-print_grants() {
-  cat >&2 <<EOF
+open_pane() { open "x-apple.systempreferences:com.apple.preference.security?$1" || true; }
 
-Appium needs two permissions for $1.
-Grant them in System Settings > Privacy & Security, then restart Appium:
-  Accessibility
-  Screen & System Audio Recording
-EOF
+ask_grants() {
+  log "Grant $1 to $2 in System Settings > Privacy & Security, then $3"
+  case "$1" in *Accessibility*) open_pane Privacy_Accessibility ;; esac
+  case "$1" in *Recording*) open_pane Privacy_ScreenCapture ;; esac
+}
+
+show_permissions() {
+  local reply code
+  reply=$(curl -s -w '\n%{http_code}' "$(status_url)") || die "Appium does not answer $(status_url). See ~/Library/Logs/$LABEL.log"
+  code=${reply##*$'\n'}
+  if [ "$code" != 200 ]; then
+    log "$(status_url) gives HTTP $code, so this driver does not show its permissions"
+    ask_grants "$ALL_GRANTS" "$XA11Y_HOME/node/bin/node" "restart Appium: launchctl kickstart -k gui/$(id -u)/$LABEL"
+    return
+  fi
+  printf '%s' "${reply%$'\n'*}" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const v = JSON.parse(s).value;
+      console.log(v.next ?? "Appium has the permissions that it needs.");
+      if (!v.accessibility) console.log("Privacy_Accessibility");
+      if (!v.screenRecording) console.log("Privacy_ScreenCapture");
+    });' | {
+    local line pane
+    read -r line
+    log "$line"
+    while read -r pane; do
+      open_pane "$pane"
+    done
+  }
+}
+
+show_terminal_permissions() {
+  local missing
+  missing=$(osascript -l JavaScript -e "$TERMINAL_GRANTS" 2>/dev/null) || missing=$ALL_GRANTS
+  [ -z "$missing" ] || ask_grants "$missing" "the terminal app that runs host.sh" "start Appium"
 }
 
 setup() {
+  [ "$SERVICE" = no ] || require_free_port "$(agent_pid)"
   mkdir -p "$XA11Y_HOME"
   install_node
   install_appium
@@ -169,15 +243,16 @@ setup() {
   write_env
   if [ "$SERVICE" = no ]; then
     log "Installed. Start Appium with: \"$XA11Y_HOME/host.sh\" run"
-    print_grants "the terminal app that runs host.sh"
+    show_terminal_permissions
     return
   fi
   install_agent
-  print_grants "$("$XA11Y_HOME/node/bin/node" -p 'require("fs").realpathSync(process.execPath)')"
+  show_permissions
 }
 
 run() {
   export PATH NODE_OPTIONS=
+  require_free_port
   exec env APPIUM_HOME="$XA11Y_HOME/appium-home" "$XA11Y_HOME/appium/node_modules/.bin/appium" \
     --address "$ADDRESS" --port "$PORT" --log-timestamp
 }

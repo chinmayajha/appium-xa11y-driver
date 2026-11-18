@@ -4,9 +4,19 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- `GET /xa11y/status` gives the `platformName` of the Host without a session. On macOS it also gives the permissions of Appium and the app or Node.js that gets them. When a permission is missing, it gives the next step. `hosts/mac/setup.sh` shows that next step and opens the panes of the missing permissions.
+
+### Changed
+
+- On macOS, a permission error names the app or Node.js that gets the permissions. For the LaunchAgent, it also gives the `launchctl kickstart` command that restarts Appium. Other Host errors give the permission step only when a permission is missing.
+
 ### Fixed
 
 - A session whose `platformName` is not the OS of the Host fails with `session not created`, and the error names the OS of the Host. Before, the driver started the session on the Host OS.
+- The setup scripts stop when a different process holds the Appium port, before they install Appium or change the service. They name that process and the `--port` option (`-Port` on Windows). `host.sh run` and `host.ps1` do the same check. Before, setup reported success when a different Appium answered on the port.
+- On Windows, `setup.ps1` waits until the Appium of its logon task answers. Before, it reported success when it started the task.
 
 ## [0.1.3]
 

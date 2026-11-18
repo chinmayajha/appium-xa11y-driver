@@ -6,7 +6,7 @@ NODE_VERSION="${NODE_VERSION:-22.23.3}"
 APPIUM_VERSION="${APPIUM_VERSION:-3.9.0}"
 XA11Y_HOME="${XA11Y_HOME:-$HOME/.local/share/appium-xa11y}"
 UNIT=appium-xa11y.service
-BASE_PACKAGES="at-spi2-core dbus dbus-x11 libglib2.0-bin xauth xvfb openbox curl ca-certificates xz-utils fonts-dejavu-core"
+BASE_PACKAGES="at-spi2-core dbus dbus-x11 libglib2.0-bin xauth xvfb openbox curl ca-certificates xz-utils fonts-dejavu-core iproute2"
 FIXTURE_PACKAGES="mousepad gnome-calculator gtk-3-examples gtk-4-examples"
 
 usage() {
@@ -175,7 +175,9 @@ WantedBy=default.target
 EOF
   systemctl --user daemon-reload
   systemctl --user enable "$UNIT" >/dev/null 2>&1
-  systemctl --user restart "$UNIT"
+  systemctl --user stop "$UNIT"
+  require_free_port
+  systemctl --user start "$UNIT"
   wait_for_appium || die "Appium did not start. See: journalctl --user -u $UNIT"
   log "Appium listens on http://$ADDRESS:$PORT (service $UNIT)"
 }
@@ -188,10 +190,36 @@ probe_url() {
   esac
 }
 
+listeners() { ss -Hltnp "sport = :$PORT"; }
+
+port_holder() {
+  local line pid
+  line=$(listeners | grep -v -e "pid=${1:-none}," -e "pid=${2:-none}," | sed -n 1p || true)
+  [ -n "$line" ] || return 1
+  # ss shows the process of other users only to root.
+  pid=$(printf '%s' "$line" | sed -n 's/.*pid=\([0-9]*\).*/\1/p')
+  if [ -n "$pid" ]; then
+    printf 'pid %s (%s)' "$pid" "$(tr '\0' ' ' < "/proc/$pid/cmdline" | sed 's/ $//')"
+  else
+    printf 'a process of a different user'
+  fi
+}
+
+require_free_port() {
+  local holder
+  holder=$(port_holder "$@") || return 0
+  die "port $PORT is in use by $holder. Stop that process, or run setup.sh again with --port <a free port>"
+}
+
+service_pid() { XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" systemctl --user show -p MainPID --value "$1" 2>/dev/null || true; }
+
 wait_for_appium() {
-  local _
+  local _ pid
   for _ in $(seq 60); do
-    curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    pid=$(service_pid "$UNIT")
+    if [ "${pid:-0}" != 0 ] && listeners | grep "pid=$pid," > /dev/null; then
+      curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    fi
     sleep 1
   done
   return 1
@@ -203,6 +231,9 @@ setup() {
   [ "$FIXTURES" = yes ] && packages="$packages $FIXTURE_PACKAGES"
   # shellcheck disable=SC2086
   install_packages $packages
+  if [ "$SERVICE" = yes ] && [ -d /run/systemd/system ]; then
+    require_free_port "$(service_pid "$UNIT")" "${REPLACE:+$(service_pid "$REPLACE")}"
+  fi
   install_node
   install_appium
   install_driver
@@ -316,6 +347,7 @@ a11y_bus() {
 
 run() {
   export PATH
+  require_free_port
   [ -n "$BEFORE" ] && bash -c "$BEFORE"
   pick_display
   export DISPLAY NO_AT_BRIDGE=0 ATSPI_DISABLE_P2P=1 GDK_BACKEND=x11 XDG_SESSION_TYPE=x11 NODE_OPTIONS=

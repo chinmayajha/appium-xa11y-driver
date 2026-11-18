@@ -5,7 +5,7 @@ Read GLOSSARY.md and ARCHITECTURE.md before you change code.
 ## Rules
 
 1. Write docs in ASD-STE100 Simplified Technical English.
-2. Test only through WebDriver in `test/conformance/`. Write no unit tests and no mocks of xa11y or the OS.
+2. Test the driver only through WebDriver in `test/conformance/`. Test the setup scripts in `hosts/` only end to end, with steps in `.github/workflows/ci.yml`. Write no unit tests and no mocks of xa11y or the OS.
 3. Branch on the OS only in `src/platforms/`.
 4. Throw `notSupportedYet('<os>', '<call>')` for a call that is not proven on an OS. Never use the behaviour of a different OS.
 5. The Page source attributes are a contract. A change to them is a breaking change and needs a CHANGELOG.md entry.
