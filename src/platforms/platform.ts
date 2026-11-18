@@ -16,6 +16,15 @@ export interface Frame {
 
 export const NO_FRAME: Frame = { left: 0, right: 0, top: 0, bottom: 0 };
 
+export interface Permissions {
+  accessibility: boolean;
+  screenRecording: boolean;
+  /** The app or binary that the permissions belong to. */
+  grantTo: string;
+  /** What to do when a permission is missing. */
+  next?: string;
+}
+
 /** What differs between operating systems and xa11y does not cover. */
 export interface Platform {
   /** The `platformName` capability of a session on this OS. */
@@ -23,7 +32,9 @@ export interface Platform {
   /** The modifier that `primary` names in a Chord: Meta on macOS, Ctrl elsewhere. */
   readonly primaryModifier: string;
   /** Tells the user what to grant or start when xa11y reports a permission error. */
-  readonly permissionHint: string;
+  permissionHint(): Promise<string>;
+  /** The OS permissions of the Appium process, where the OS has them. */
+  permissions?(): Promise<Permissions>;
   /** Start the app and return the pid of the process that owns its windows. */
   launch(app: string, args: string[], timeoutMs: number): Promise<number>;
   /** Whether the app owns the active window of the Desktop session. */

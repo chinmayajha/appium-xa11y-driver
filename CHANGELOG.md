@@ -4,6 +4,14 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- `GET /xa11y/status` gives the `platformName` of the Host without a session. On macOS it also gives the Accessibility and Screen & System Audio Recording permissions of the Appium process, the app or Node.js that gets them, and the next step when one is missing. `hosts/mac/setup.sh` shows that next step and opens the panes of the missing permissions.
+
+### Changed
+
+- On macOS, a permission error names the app or Node.js that gets the permissions, and for the LaunchAgent the `launchctl kickstart` command that restarts Appium.
+
 ### Fixed
 
 - A session whose `platformName` is not the OS of the Host fails with `session not created`, and the error names the OS of the Host. Before, the driver started the session on the Host OS.

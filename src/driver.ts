@@ -1,8 +1,9 @@
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { BaseDriver, errors } from 'appium/driver';
 import { util } from 'appium/support';
-import type { DefaultCreateSessionResult, DriverCaps, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
+import type { DefaultCreateSessionResult, DriverCaps, DriverData, ExecuteMethodMap, UpdateServerCallback, W3CDriverCaps } from '@appium/types';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
 import { asWebDriverError } from './errors';
 import { Input, type ActionSequence } from './input';
@@ -42,6 +43,18 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     'xa11y: activeAppInfo': { command: 'xa11yActiveAppInfo' },
   } as const satisfies ExecuteMethodMap<Xa11yDriver>;
 
+  /** `GET /xa11y/status`: the Host OS and its permissions, without a session. */
+  static updateServer: UpdateServerCallback = async (app, _server, cliArgs) => {
+    app.get(`${(cliArgs.basePath ?? '').replace(/\/$/, '')}/xa11y/status`, (_req: IncomingMessage, res: ServerResponse) => {
+      const send = (code: number, value: object) => res.writeHead(code, { 'Content-Type': 'application/json' }).end(JSON.stringify({ value }));
+      const platform = currentPlatform();
+      (platform.permissions?.() ?? Promise.resolve({})).then(
+        (permissions) => send(200, { platformName: platform.platformName, ...permissions }),
+        (e: Error) => send(500, { error: 'unknown error', message: e.message }),
+      );
+    });
+  };
+
   private session?: Session;
   private screen = new Screen();
 
@@ -63,7 +76,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
       return await super.executeCommand<T>(cmd, ...args);
     } catch (e) {
       await this.saveFailure(cmd);
-      throw asWebDriverError(e, { hint: this.session?.platform.permissionHint });
+      throw await asWebDriverError(e, { hint: this.session?.platform.permissionHint });
     } finally {
       this.log.info(`${cmd} took ${Math.round(performance.now() - started)} ms`);
     }
@@ -88,7 +101,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     } catch (e) {
       const hint = this.session?.platform.permissionHint;
       await this.deleteSession();
-      const err = asWebDriverError(e, { hint, creating: true });
+      const err = await asWebDriverError(e, { hint, creating: true });
       throw err instanceof errors.SessionNotCreatedError ? err : new errors.SessionNotCreatedError((err as Error).message);
     }
     return result;

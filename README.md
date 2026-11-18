@@ -34,7 +34,7 @@ The Windows script has the same options as PowerShell parameters: `-Driver`, `-A
 
 On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
 
-On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. The script shows the path to grant. Grant both permissions in System Settings > Privacy & Security, then restart Appium. Screenshots need Screen & System Audio Recording. Pointer actions do not need it.
+On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. After the start, the script reads `GET /xa11y/status` from the service. When a permission is missing, it shows the app or Node.js to grant and the restart command, and opens the panes of the missing permissions in System Settings > Privacy & Security. Screenshots need Screen & System Audio Recording. Pointer actions do not need it.
 
 On Windows the service is a logon task, `appium-xa11y`, of the user that runs the script. That user must be logged on to the desktop.
 
@@ -123,6 +123,7 @@ Some commands are different from other Appium drivers.
 | `activateApp` | Attaches the session to a running instance of the app and brings it to the front. The app id is the same as for `appium:app`. If no instance runs, it starts the app, as `xa11y: launch` does. |
 | `terminateApp` | Stops this app: the instances that the session started, and the instance that runs now. It gives `true` if there was one. |
 | `execute` | Only the `xa11y:` methods. Other scripts fail with `unknown method`. |
+| `GET /xa11y/status` | No session. The `platformName` of the Host. On macOS also `accessibility` and `screenRecording` (`true` when the Appium process has the permission), `grantTo` (the app or Node.js that gets the permissions) and `next` (what to do when a permission is missing). |
 
 ## Surfaces
 

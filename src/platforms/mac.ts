@@ -5,8 +5,8 @@ import { promisify } from 'node:util';
 import { App, type Rect } from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 import { activateWindow, keyUps, quit, rawString, startedAt } from './common';
-import { clearFlags, manualAccessibility, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
-import { NO_FRAME, type Platform } from './platform';
+import { clearFlags, grants, manualAccessibility, postButton, postDrag, postPixelScroll, runningPids, screenRects } from './mac-events';
+import { NO_FRAME, type Permissions, type Platform } from './platform';
 
 const run = promisify(execFile);
 const APP_DIRS = ['/Applications', '/System/Applications', '/System/Applications/Utilities', `${process.env.HOME}/Applications`];
@@ -121,11 +121,37 @@ async function frontmost(): Promise<App | undefined> {
   return App.foreground({ timeout: 0 }).catch(() => undefined);
 }
 
+const SERVICE_LABEL = 'appium-xa11y';
+const PERMISSIONS = 'System Settings > Privacy & Security';
+
+/** The app bundle of an executable, because System Settings lists apps and not their binaries. */
+async function grantee(pid: number): Promise<string> {
+  const exe = pid === process.pid ? realpathSync(process.execPath) : await out('ps', ['-o', 'comm=', '-p', String(pid)]);
+  return exe.match(/^(.*?\.app)\/Contents\/MacOS\//)?.[1] ?? exe;
+}
+
+function restartStep(): string {
+  return process.env.XPC_SERVICE_NAME === SERVICE_LABEL
+    ? `then restart Appium: launchctl kickstart -k gui/${process.getuid?.()}/${SERVICE_LABEL}`
+    : 'then start Appium again';
+}
+
+async function permissions(): Promise<Permissions> {
+  const g = await grants(process.pid);
+  const grantTo = await grantee(g.responsiblePid);
+  const missing = [g.accessibility ? '' : 'Accessibility', g.screenRecording ? '' : 'Screen & System Audio Recording'].filter(Boolean);
+  const next = missing.length ? `Grant ${missing.join(' and ')} to ${grantTo} in ${PERMISSIONS}, ${restartStep()}` : undefined;
+  return { accessibility: g.accessibility, screenRecording: g.screenRecording, grantTo, next };
+}
+
 export const mac: Platform = {
   platformName: 'Mac',
   primaryModifier: 'Meta',
-  permissionHint: 'Grant Accessibility and Screen & System Audio Recording to the process that runs Appium: the Node.js of the service '
-    + '(hosts/mac/setup.sh prints its path), or the terminal app when you run host.sh run in a terminal.',
+  async permissionHint() {
+    const p = await permissions().catch(() => undefined);
+    return p?.next ?? `Grant Accessibility and Screen & System Audio Recording to ${p?.grantTo ?? 'the app that started Appium'} in ${PERMISSIONS}, ${restartStep()}`;
+  },
+  permissions,
   async launch(app, args, timeoutMs) {
     const bundle = await bundlePath(app);
     const id = await requiredBundleId(bundle);

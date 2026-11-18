@@ -182,14 +182,26 @@ EOF
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
 }
 
-print_grants() {
-  cat >&2 <<EOF
+status_url() { probe_url | sed 's|/status$|/xa11y/status|'; }
 
-Appium needs two permissions for $1.
-Grant them in System Settings > Privacy & Security, then restart Appium:
-  Accessibility
-  Screen & System Audio Recording
-EOF
+show_permissions() {
+  local status
+  status=$(curl -sf "$(status_url)") || die "Appium does not answer $(status_url). See ~/Library/Logs/$LABEL.log"
+  printf '%s' "$status" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const v = JSON.parse(s).value;
+      console.log(v.next ?? "Appium has Accessibility and Screen & System Audio Recording.");
+      if (!v.accessibility) console.log("Privacy_Accessibility");
+      if (!v.screenRecording) console.log("Privacy_ScreenCapture");
+    });' | {
+    local line pane
+    read -r line
+    log "$line"
+    while read -r pane; do
+      open "x-apple.systempreferences:com.apple.preference.security?$pane"
+    done
+  }
 }
 
 setup() {
@@ -200,12 +212,11 @@ setup() {
   install_driver
   write_env
   if [ "$SERVICE" = no ]; then
-    log "Installed. Start Appium with: \"$XA11Y_HOME/host.sh\" run"
-    print_grants "the terminal app that runs host.sh"
+    log "Installed. Start Appium with: \"$XA11Y_HOME/host.sh\" run. Then $(status_url) shows its permissions."
     return
   fi
   install_agent
-  print_grants "$("$XA11Y_HOME/node/bin/node" -p 'require("fs").realpathSync(process.execPath)')"
+  show_permissions
 }
 
 run() {

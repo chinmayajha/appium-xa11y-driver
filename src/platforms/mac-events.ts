@@ -138,6 +138,20 @@ export async function clearFlags(keys: string[]): Promise<void> {
   }
 }
 
+const GRANTS = `ObjC.import('ApplicationServices');
+ObjC.import('CoreGraphics');
+ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]);
+ObjC.bindFunction('responsibility_get_pid_responsible_for_pid', ['int', ['int']]);
+function run(argv) {
+  return [$.AXIsProcessTrusted(), $.CGPreflightScreenCaptureAccess(), $.responsibility_get_pid_responsible_for_pid(Number(argv[0]))].join(' ');
+}`;
+
+/** The grants of the process that TCC checks for `pid`: the app that started it, or the process itself. */
+export async function grants(pid: number): Promise<{ accessibility: boolean; screenRecording: boolean; responsiblePid: number }> {
+  const [accessibility, screenRecording, responsible] = (await jxa(GRANTS, [pid])).stdout.trim().split(' ');
+  return { accessibility: accessibility === 'true', screenRecording: screenRecording === 'true', responsiblePid: Number(responsible) };
+}
+
 const MANUAL_ACCESSIBILITY = `ObjC.import('ApplicationServices');
 function run(argv) {
   const app = $.AXUIElementCreateApplication(Number(argv[0]));

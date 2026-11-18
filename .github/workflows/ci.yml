@@ -140,12 +140,31 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os mac
+      - name: The status of an Appium under a different Node.js shows its missing permissions
+        run: |
+          home="$HOME/Library/Application Support/appium-xa11y"
+          other="$RUNNER_TEMP/other-node/node"
+          mkdir -p "$(dirname "$other")"
+          cp "$(node -p 'require("fs").realpathSync(process.execPath)')" "$other"
+          APPIUM_HOME="$home/appium-home" "$other" "$home/appium/node_modules/.bin/appium" --port 4799 > other-appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4799/status > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:4799/xa11y/status | tee status.json
+          kill %1
+          OTHER="$other" node -e '
+            const { value: v } = JSON.parse(require("fs").readFileSync("status.json", "utf8"));
+            const want = `Grant Accessibility and Screen & System Audio Recording to ${process.env.OTHER} in System Settings > Privacy & Security, then start Appium again`;
+            require("assert").deepEqual([v.accessibility, v.screenRecording, v.grantTo, v.next], [false, false, process.env.OTHER, want]);'
       - name: setup.sh stops when a different Appium holds its port
         run: |
           rc=0
           out=$(hosts/mac/setup.sh --driver . 2>&1) || rc=$?
           echo "$out"
           [ "$rc" != 0 ] && grep 'port 4723 is in use by pid [0-9]* (.*appium' <<<"$out" > /dev/null
+      - name: setup.sh names what the LaunchAgent still needs
+        run: |
+          out=$(hosts/mac/setup.sh --driver . --port 4724 2>&1)
+          echo "$out"
+          grep -F "Grant Accessibility and Screen & System Audio Recording to $HOME/Library/Application Support/appium-xa11y/node/bin/node in System Settings > Privacy & Security, then restart Appium: launchctl kickstart -k gui/$(id -u)/appium-xa11y" <<<"$out" > /dev/null
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
