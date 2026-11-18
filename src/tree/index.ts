@@ -5,7 +5,7 @@ import { asWebDriverError } from '../errors';
 import type { Platform, Point } from '../platforms';
 import type { Target } from '../target';
 import { select, toXpaths } from './find';
-import { attributesOf, snapshot, toXml, UNPLACED, type Node, type Path, type Placement } from './snapshot';
+import { attributesOf, kindOf, snapshot, toXml, UNPLACED, type Node, type Path, type Placement, type Step } from './snapshot';
 
 export { LOCATOR_STRATEGIES } from './find';
 
@@ -173,8 +173,8 @@ export class Tree {
   private async walk(path: Path): Promise<Resolved> {
     let el = this.target.app.asElement();
     let top: Element | undefined;
-    for (const i of path) {
-      const next = (await el.children())[i];
+    for (const step of path) {
+      const next = (await this.kin(el, step))[step.nth];
       if (!next) {
         throw new errors.StaleElementReferenceError('The element is no longer in the tree');
       }
@@ -184,6 +184,10 @@ export class Tree {
     return { el, top };
   }
 
+  private async kin(parent: Element, step: Step): Promise<Element[]> {
+    return (await parent.children()).filter((k) => kindOf(k, this.platform) === step.kind);
+  }
+
   /** Walks the handle's path; at the last step the one sibling with the handle's identity wins, because a change before it shifts the index. */
   private async follow(h: Handle): Promise<Resolved> {
     const path = h.path ?? [];
@@ -191,12 +195,13 @@ export class Tree {
     if (!path.length) {
       return parent;
     }
-    const kids = await parent.el.children();
-    const i = this.indexOf(h.el, kids, path[path.length - 1]);
+    const last = path[path.length - 1];
+    const kids = await this.kin(parent.el, last);
+    const i = this.indexOf(h.el, kids, last.nth);
     if (!kids[i]) {
       throw new errors.StaleElementReferenceError('The element is no longer in the tree');
     }
-    h.path = [...path.slice(0, -1), i];
+    h.path = [...path.slice(0, -1), { ...last, nth: i }];
     return { el: kids[i], top: parent.top ?? kids[i] };
   }
 

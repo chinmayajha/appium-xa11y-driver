@@ -3,7 +3,13 @@ import type { Element as XmlElement, Document as XmlDocument } from '@xmldom/xml
 import type { Element, Rect } from '@crowecawcaw/xa11y';
 import type { Platform } from '../platforms';
 
-export type Path = number[];
+/** One step from a parent to a child: the child's kind and its place among the siblings of that kind. */
+export interface Step {
+  kind: string;
+  nth: number;
+}
+
+export type Path = Step[];
 
 export interface Node {
   el: Element;
@@ -85,6 +91,19 @@ export function attributesOf(el: Element, { rect, id }: Placement, names: RoleNa
   };
 }
 
+export const kindOf = (el: Element, names: RoleNames) => `${el.role} ${names.platformRole(el)}`;
+
+/** A sibling of a different kind that comes or goes, such as a table row, does not change the steps. */
+function stepsTo(children: Element[], names: RoleNames): Step[] {
+  const seen = new Map<string, number>();
+  return children.map((el) => {
+    const kind = kindOf(el, names);
+    const nth = seen.get(kind) ?? 0;
+    seen.set(kind, nth + 1);
+    return { kind, nth };
+  });
+}
+
 function tagFor(role: string): string {
   return /^[A-Za-z_][\w-]*$/.test(role) ? role : 'unknown';
 }
@@ -147,8 +166,9 @@ async function fill(walk: Walk, xml: XmlElement, node: Node): Promise<void> {
   }
   walk.nodes.set(xml, node);
   const children = node.path.length >= MAX_DEPTH ? [] : await read(walk, node, () => node.el.children(), []);
+  const steps = stepsTo(children, walk.names);
   const kids = children
-    .map((el, i) => ({ el, path: [...node.path, i], top: topFor(node, el) }))
+    .map((el, i) => ({ el, path: [...node.path, steps[i]], top: topFor(node, el) }))
     .filter((kid) => kid.el.role !== 'application');
   const xmlKids = kids.map((kid) => xml.appendChild(walk.doc.createElement(tagFor(kid.el.role))) as XmlElement);
   await Promise.all(kids.map((kid, i) => fill(walk, xmlKids[i], kid)));
