@@ -7,6 +7,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 ### Fixed
 
 - A session whose `platformName` is not the OS of the Host fails with `session not created`, and the error names the OS of the Host. Before, the driver started the session on the Host OS.
+- `setup.sh` on macOS and Linux stops before it changes anything when a different process holds the Appium port, and names that process and the `--port` option. `host.sh run` does the same check. Before, setup reported success when a different Appium answered on the port.
 
 ## [0.1.3]
 
