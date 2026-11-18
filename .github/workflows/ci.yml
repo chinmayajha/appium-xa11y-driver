@@ -151,6 +151,13 @@ jobs:
           out=$(hosts/mac/setup.sh --driver . --port 4724 2>&1)
           echo "$out"
           grep -F "Grant Accessibility and Screen & System Audio Recording to $HOME/Library/Application Support/appium-xa11y/node/bin/node in System Settings > Privacy & Security, then restart Appium: launchctl kickstart -k gui/$(id -u)/appium-xa11y" <<<"$out" > /dev/null
+      - name: setup.sh runs again while its own LaunchAgent holds the port
+        run: |
+          out=$(hosts/mac/setup.sh --driver . --port 4724 2>&1)
+          echo "$out"
+          grep -F "Appium listens on http://127.0.0.1:4724" <<<"$out" > /dev/null
+      - name: setup.sh finishes with a driver that has no status route
+        run: hosts/mac/setup.sh --driver appium-xa11y-driver@0.1.3 --port 4724
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
