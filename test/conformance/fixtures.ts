@@ -13,6 +13,8 @@ export interface Fixtures {
   checkBox?: { app: string; xpath: string };
   /** A button that opens a menu and has the combo_box role. */
   menuButton?: { app: string; xpath: string };
+  /** An empty text field that shows `text` as hint text, after the `chord` that opens it. */
+  placeholder?: { app: string; text: string; chord?: string };
   /** The name of the calculator app, where `appium:app` takes a name in place of the app id. */
   calculatorName?: string;
 }
@@ -29,6 +31,7 @@ const fixtures: Record<string, Fixtures> = {
     },
     checkBox: { app: 'com.apple.TextEdit', xpath: "//check_box[@name='bold']" },
     menuButton: { app: 'com.apple.TextEdit', xpath: "//combo_box[@type='AXPopUpButton']" },
+    placeholder: { app: 'com.apple.TextEdit', text: 'Find', chord: 'primary+f' },
     calculatorName: 'calculator',
   },
   linux: {
@@ -40,6 +43,7 @@ const fixtures: Record<string, Fixtures> = {
       buttons: { C: "//button[@name='C']", 7: "//button[@name='7']", 5: "//button[@name='5']", '+': "//button[@name='+']", '=': "//button[@name='=']" },
     },
     arguments: { app: 'gnome-calculator', args: ['--equation=40+2'], shows: '40+2' },
+    placeholder: { app: 'gtk3-widget-factory', text: 'Click icon to change mode' },
     checkBox: { app: 'gtk3-widget-factory', xpath: "(//check_box[@checked='false' and @enabled='true' and @visible='true'])[last()]" },
   },
   windows: {
