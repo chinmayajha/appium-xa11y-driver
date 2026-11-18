@@ -118,9 +118,45 @@ function Install-Driver {
   Invoke-Checked $AppiumCmd driver install "--source=$source" $spec
 }
 
+function Get-PortHolder {
+  $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($conn) { Get-CimInstance Win32_Process -Filter "ProcessId = $($conn.OwningProcess)" }
+}
+
+function Test-TaskProcess($Process) {
+  $p = $Process
+  foreach ($i in 1..10) {
+    if (-not $p) { break }
+    if ($p.CommandLine -and $p.CommandLine.Contains("$Root\host.ps1' *>>")) { return $true }
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $($p.ParentProcessId)"
+  }
+  $false
+}
+
+function Assert-FreePort([switch]$AllowTask) {
+  $holder = Get-PortHolder
+  if (-not $holder -or ($AllowTask -and (Test-TaskProcess $holder))) { return }
+  $what = if ($holder.CommandLine) { $holder.CommandLine } else { $holder.Name }
+  throw "port $Port is in use by pid $($holder.ProcessId) ($what). Stop that process, or run setup.ps1 again with -Port <a free port>"
+}
+
+function Wait-Appium {
+  foreach ($i in 1..60) {
+    $holder = Get-PortHolder
+    if ($holder -and (Test-TaskProcess $holder)) {
+      $status = Invoke-Quiet curl.exe -s "http://127.0.0.1:$Port/status"
+      if ("$status".Contains('"ready"')) { return }
+    }
+    Start-Sleep 1
+  }
+  throw "Appium did not start. See $Root\appium.log"
+}
+
 function Write-HostScript {
   $nodeDir = Join-Path $Root 'node'
   Set-Content (Join-Path $Root 'host.ps1') @"
+`$conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if (`$conn) { throw "port $Port is in use by pid `$(`$conn.OwningProcess) (`$((Get-Process -Id `$conn.OwningProcess).Path)). Stop that process, or run setup.ps1 again with -Port <a free port>" }
 if (Test-Path '$nodeDir\node.exe') { `$env:Path = '$nodeDir;' + `$env:Path }
 `$env:APPIUM_HOME = '$AppiumHome'
 & '$AppiumCmd' --address $Address --port $Port --log-timestamp
@@ -136,10 +172,18 @@ function Register-Service {
   $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
   Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
   Stop-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
+  foreach ($i in 1..50) {
+    $holder = Get-PortHolder
+    if (-not $holder -or -not (Test-TaskProcess $holder)) { break }
+    Start-Sleep -Milliseconds 200
+  }
+  Assert-FreePort
   Start-ScheduledTask -TaskName $Task
-  Log "Appium runs as the logon task '$Task' of $me. The log is $Root\appium.log"
+  Wait-Appium
+  Log "Appium listens on http://${Address}:$Port (logon task '$Task' of $me, log in $Root\appium.log)"
 }
 
+if (-not $NoService) { Assert-FreePort -AllowTask }
 New-Item -ItemType Directory -Force $Root | Out-Null
 $env:APPIUM_HOME = $AppiumHome
 Install-Runtime
