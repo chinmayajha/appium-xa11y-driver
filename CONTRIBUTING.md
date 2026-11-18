@@ -1,6 +1,6 @@
 # Contributing
 
-Read [GLOSSARY.md](GLOSSARY.md) and [ARCHITECTURE.md](ARCHITECTURE.md) before you change code. The conformance suite is the only test. It talks WebDriver to a running Appium on a real Desktop session.
+Read [GLOSSARY.md](GLOSSARY.md) and [ARCHITECTURE.md](ARCHITECTURE.md) before you change code. The conformance suite is the only test of the driver. It talks WebDriver to a running Appium on a real Desktop session. CI also runs the setup scripts end to end.
 
 ## First run on Linux
 
@@ -158,7 +158,7 @@ The owner of the npm package does a release. A release goes from `main`, after C
 ## Rules
 
 - Write docs in ASD-STE100 Simplified Technical English.
-- Test only through WebDriver in `test/conformance/`. Do not write unit tests or mocks of xa11y or of the OS.
+- Test the driver only through WebDriver in `test/conformance/`. Test the setup scripts in `hosts/` only end to end, with steps in `.github/workflows/ci.yml`. Do not write unit tests or mocks of xa11y or of the OS.
 - Branch on the OS only in `src/platforms/`.
 - For a call that is not proven on an OS, throw `notSupportedYet('<os>', '<call>')`. Do not use the behaviour of a different OS.
 - The Page source attributes are a contract. A change to them is a breaking change and needs a [CHANGELOG.md](CHANGELOG.md) entry.

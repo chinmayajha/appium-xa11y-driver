@@ -74,6 +74,7 @@ The seam has adapters for macOS, Linux and Windows. An adapter reports "Not supp
 
 - **Conformance suite** (`test/conformance/`): one WebDriver test set, run against the fixture apps of the OS it runs on. It is the definition of "this OS is supported" and of the Page source contract. It talks to a running Appium by URL, so the same suite runs on this Mac, on an instabox box through a tunnel, and in CI.
 - **Fixture apps:** macOS: TextEdit, Calculator. Linux: `gtk3-widget-factory`, `gnome-calculator`, `mousepad`. Windows: Notepad, Calculator (`calc.exe` starts `win32calc.exe` on Windows Server).
+- **Setup script checks** (`.github/workflows/ci.yml`): steps that run the scripts in `hosts/` on each runner. They examine the exit code and the output, for example when a different Appium holds the port.
 - No mocks of xa11y or of the OS. A behaviour that cannot be tested on a real Desktop session is not tested.
 
 ## Hosts and Surfaces
