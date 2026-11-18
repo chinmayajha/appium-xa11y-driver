@@ -114,10 +114,36 @@ probe_url() {
   esac
 }
 
+port_holder() {
+  local own="${1:-none}" pids pid rc=0
+  pids=$(lsof -nP -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)
+  pid=$(printf '%s\n' "$pids" | grep -vx -e "$own" -e '' | sed -n 1p || true)
+  if [ -n "$pid" ]; then
+    printf 'pid %s (%s)' "$pid" "$(ps -o command= -p "$pid")"
+    return 0
+  fi
+  printf '%s\n' "$pids" | grep -x -e "$own" > /dev/null && return 1
+  # lsof does not show the sockets of other users, but a connection still reaches them.
+  curl -s -o /dev/null --max-time 2 "$(probe_url)" || rc=$?
+  [ "$rc" = 7 ] && return 1
+  printf 'a process of a different user'
+}
+
+require_free_port() {
+  local holder
+  holder=$(port_holder "${1:-}") || return 0
+  die "port $PORT is in use by $holder. Stop that process, or run setup.sh again with --port <a free port>"
+}
+
+agent_pid() { launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | awk '$1 == "pid" { print $3 }' || true; }
+
 wait_for_appium() {
-  local _
+  local _ pid
   for _ in $(seq 60); do
-    curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    pid=$(agent_pid)
+    if [ -n "$pid" ] && lsof -nP -a -p "$pid" -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+      curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
+    fi
     sleep 1
   done
   return 1
@@ -126,7 +152,7 @@ wait_for_appium() {
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
 install_agent() {
-  local program log
+  local program log old
   program=$(xml_escape "$XA11Y_HOME/host.sh")
   log=$(xml_escape "$HOME/Library/Logs/$LABEL.log")
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -145,7 +171,12 @@ install_agent() {
 </dict>
 </plist>
 EOF
+  old=$(agent_pid)
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  while [ -n "$old" ] && kill -0 "$old" 2>/dev/null; do
+    sleep 0.2
+  done
+  require_free_port
   launchctl bootstrap "gui/$(id -u)" "$AGENT"
   wait_for_appium || die "Appium did not start. See ~/Library/Logs/$LABEL.log"
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
@@ -162,6 +193,7 @@ EOF
 }
 
 setup() {
+  [ "$SERVICE" = no ] || require_free_port "$(agent_pid)"
   mkdir -p "$XA11Y_HOME"
   install_node
   install_appium
@@ -178,6 +210,7 @@ setup() {
 
 run() {
   export PATH NODE_OPTIONS=
+  require_free_port
   exec env APPIUM_HOME="$XA11Y_HOME/appium-home" "$XA11Y_HOME/appium/node_modules/.bin/appium" \
     --address "$ADDRESS" --port "$PORT" --log-timestamp
 }
