@@ -4,6 +4,8 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+## [0.1.4]
+
 ### Added
 
 - `GET /xa11y/status` gives the `platformName` of the Host without a session. On macOS it also gives the permissions of Appium and the app or Node.js that gets them. When a permission is missing, it gives the next step. `hosts/mac/setup.sh` shows that next step and opens the panes of the missing permissions.
