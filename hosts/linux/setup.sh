@@ -194,7 +194,7 @@ listeners() { ss -Hltnp "sport = :$PORT"; }
 
 port_holder() {
   local line pid
-  line=$(listeners | grep -v "pid=${1:-none}," | sed -n 1p || true)
+  line=$(listeners | grep -v -e "pid=${1:-none}," -e "pid=${2:-none}," | sed -n 1p || true)
   [ -n "$line" ] || return 1
   # ss shows the process of other users only to root.
   pid=$(printf '%s' "$line" | sed -n 's/.*pid=\([0-9]*\).*/\1/p')
@@ -207,16 +207,16 @@ port_holder() {
 
 require_free_port() {
   local holder
-  holder=$(port_holder "${1:-}") || return 0
+  holder=$(port_holder "$@") || return 0
   die "port $PORT is in use by $holder. Stop that process, or run setup.sh again with --port <a free port>"
 }
 
-service_pid() { XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" systemctl --user show -p MainPID --value "$UNIT" 2>/dev/null || true; }
+service_pid() { XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" systemctl --user show -p MainPID --value "$1" 2>/dev/null || true; }
 
 wait_for_appium() {
   local _ pid
   for _ in $(seq 60); do
-    pid=$(service_pid)
+    pid=$(service_pid "$UNIT")
     if [ "${pid:-0}" != 0 ] && listeners | grep "pid=$pid," > /dev/null; then
       curl -sf "$(probe_url)" | grep '"ready"' > /dev/null && return 0
     fi
@@ -226,15 +226,14 @@ wait_for_appium() {
 }
 
 setup() {
-  # With --replace, the old unit can hold the port until install_service stops it.
-  if [ "$SERVICE" = yes ] && [ -z "$REPLACE" ] && command -v ss > /dev/null; then
-    require_free_port "$(service_pid)"
-  fi
   mkdir -p "$XA11Y_HOME"
   local packages="$BASE_PACKAGES"
   [ "$FIXTURES" = yes ] && packages="$packages $FIXTURE_PACKAGES"
   # shellcheck disable=SC2086
   install_packages $packages
+  if [ "$SERVICE" = yes ] && [ -d /run/systemd/system ]; then
+    require_free_port "$(service_pid "$UNIT")" "${REPLACE:+$(service_pid "$REPLACE")}"
+  fi
   install_node
   install_appium
   install_driver
