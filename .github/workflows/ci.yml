@@ -150,10 +150,9 @@ jobs:
           for _ in $(seq 60); do curl -sf http://127.0.0.1:4799/status > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:4799/xa11y/status | tee status.json
           kill %1
-          OTHER="$other" node -e '
+          OTHER="$other" NEXT="Grant Accessibility and Screen & System Audio Recording to $other in System Settings > Privacy & Security, then start Appium again" node -e '
             const { value: v } = JSON.parse(require("fs").readFileSync("status.json", "utf8"));
-            const want = `Grant Accessibility and Screen & System Audio Recording to ${process.env.OTHER} in System Settings > Privacy & Security, then start Appium again`;
-            require("assert").deepEqual([v.accessibility, v.screenRecording, v.grantTo, v.next], [false, false, process.env.OTHER, want]);'
+            require("assert").deepEqual([v.accessibility, v.screenRecording, v.grantTo, v.next], [false, false, process.env.OTHER, process.env.NEXT]);'
       - name: setup.sh stops when a different Appium holds its port
         run: |
           rc=0
