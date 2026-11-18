@@ -2,7 +2,7 @@ import * as xa from '@crowecawcaw/xa11y';
 import { errors } from 'appium/driver';
 
 export interface ErrorContext {
-  hint?: () => Promise<string>;
+  hint?: (denied: boolean) => Promise<string>;
   creating?: boolean;
 }
 
@@ -18,13 +18,13 @@ function is(e: Error, code: string, text: RegExp): boolean {
 /** A failure of the Host that the permission hint can help with. */
 export class HostError extends Error {}
 
-async function withHint(m: string, ctx: ErrorContext): Promise<string> {
-  const hint = await ctx.hint?.();
+async function withHint(m: string, ctx: ErrorContext, denied = false): Promise<string> {
+  const hint = await ctx.hint?.(denied);
   return hint ? `${m}. ${hint}` : m;
 }
 
 async function notPermitted(e: Error, ctx: ErrorContext): Promise<Error> {
-  const m = await withHint(e.message, ctx);
+  const m = await withHint(e.message, ctx, true);
   return ctx.creating ? new errors.SessionNotCreatedError(m) : new errors.UnknownError(m);
 }
 

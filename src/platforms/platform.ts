@@ -31,8 +31,8 @@ export interface Platform {
   readonly platformName: string;
   /** The modifier that `primary` names in a Chord: Meta on macOS, Ctrl elsewhere. */
   readonly primaryModifier: string;
-  /** Tells the user what to grant or start when xa11y reports a permission error. */
-  permissionHint(): Promise<string>;
+  /** Tells the user what to grant or start; `denied` is true when the OS refused a permission. */
+  permissionHint(denied: boolean): Promise<string>;
   /** The OS permissions of the Appium process, where the OS has them. */
   permissions?(): Promise<Permissions>;
   /** Start the app and return the pid of the process that owns its windows. */

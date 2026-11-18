@@ -122,7 +122,9 @@ async function frontmost(): Promise<App | undefined> {
 }
 
 const SERVICE_LABEL = 'appium-xa11y';
-const PERMISSIONS = 'System Settings > Privacy & Security';
+const PRIVACY_SETTINGS = 'System Settings > Privacy & Security';
+const GRANT_NAMES = { accessibility: 'Accessibility', screenRecording: 'Screen & System Audio Recording' } as const;
+const ALL_GRANTS = Object.values(GRANT_NAMES).join(' and ');
 
 /** The app bundle of an executable, because System Settings lists apps and not their binaries. */
 async function grantee(pid: number): Promise<string> {
@@ -137,23 +139,22 @@ function restart(): string {
 }
 
 async function permissions(): Promise<Permissions> {
-  const g = await grants(process.pid);
+  const g = await grants();
   const grantTo = await grantee(g.responsiblePid);
-  const missing = [g.accessibility ? '' : 'Accessibility', g.screenRecording ? '' : 'Screen & System Audio Recording'].filter(Boolean);
-  const next = missing.length ? `Grant ${missing.join(' and ')} to ${grantTo} in ${PERMISSIONS}, then ${restart()}` : undefined;
+  const missing = (['accessibility', 'screenRecording'] as const).filter((k) => !g[k]).map((k) => GRANT_NAMES[k]);
+  const next = missing.length ? `Grant ${missing.join(' and ')} to ${grantTo} in ${PRIVACY_SETTINGS}, then ${restart()}` : undefined;
   return { accessibility: g.accessibility, screenRecording: g.screenRecording, grantTo, next };
 }
 
 export const mac: Platform = {
   platformName: 'Mac',
   primaryModifier: 'Meta',
-  async permissionHint() {
+  async permissionHint(denied) {
     const p = await permissions().catch(() => undefined);
     if (!p) {
-      return `Grant Accessibility and Screen & System Audio Recording to the app that started Appium in ${PERMISSIONS}, then ${restart()}`;
+      return denied ? `Grant ${ALL_GRANTS} to the app that started Appium in ${PRIVACY_SETTINGS}, then ${restart()}` : '';
     }
-    // A grant given after the start can reach the running process only after a restart.
-    return p.next ?? `${p.grantTo} has Accessibility and Screen & System Audio Recording. If you gave one after Appium started, ${restart()}`;
+    return p.next ?? (denied ? `${p.grantTo} has ${ALL_GRANTS}. If you gave one after Appium started, ${restart()}` : '');
   },
   permissions,
   async launch(app, args, timeoutMs) {

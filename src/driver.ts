@@ -1,7 +1,7 @@
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
-import { BaseDriver, errors } from 'appium/driver';
+import { BaseDriver, errors, normalizeBasePath } from 'appium/driver';
 import { util } from 'appium/support';
 import type { DefaultCreateSessionResult, DriverCaps, DriverData, ExecuteMethodMap, UpdateServerCallback, W3CDriverCaps } from '@appium/types';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
@@ -45,13 +45,14 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
 
   /** `GET /xa11y/status`: the Host OS and its permissions, without a session. */
   static updateServer: UpdateServerCallback = async (app, _server, cliArgs) => {
-    app.get(`${(cliArgs.basePath ?? '').replace(/\/$/, '')}/xa11y/status`, (_req: IncomingMessage, res: ServerResponse) => {
+    app.get(`${normalizeBasePath(cliArgs.basePath ?? '')}/xa11y/status`, async (_req: IncomingMessage, res: ServerResponse) => {
       const send = (code: number, value: object) => res.writeHead(code, { 'Content-Type': 'application/json' }).end(JSON.stringify({ value }));
       const platform = currentPlatform();
-      (platform.permissions?.() ?? Promise.resolve({})).then(
-        (permissions) => send(200, { platformName: platform.platformName, ...permissions }),
-        (e: Error) => send(500, { error: 'unknown error', message: e.message }),
-      );
+      try {
+        send(200, { platformName: platform.platformName, ...await platform.permissions?.() });
+      } catch (e) {
+        send(500, { error: 'unknown error', message: (e as Error).message });
+      }
     });
   };
 
