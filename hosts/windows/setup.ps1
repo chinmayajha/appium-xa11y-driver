@@ -123,19 +123,18 @@ function Get-PortHolder {
   if ($conn) { Get-CimInstance Win32_Process -Filter "ProcessId = $($conn.OwningProcess)" }
 }
 
-function Test-TaskProcess($Process) {
-  $p = $Process
-  foreach ($i in 1..10) {
-    if (-not $p) { break }
-    if ($p.CommandLine -and $p.CommandLine.Contains("$Root\host.ps1' *>>")) { return $true }
-    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $($p.ParentProcessId)"
+function Get-TaskTree {
+  $all = @(Get-CimInstance Win32_Process)
+  $ids = @($all | Where-Object { $_.CommandLine -and $_.CommandLine.Contains("$Root\host.ps1' *>>") } | ForEach-Object ProcessId)
+  for ($i = 0; $i -lt $ids.Count; $i++) {
+    $ids += @($all | Where-Object { $_.ParentProcessId -eq $ids[$i] } | ForEach-Object ProcessId)
   }
-  $false
+  $ids
 }
 
 function Assert-FreePort([switch]$AllowTask) {
   $holder = Get-PortHolder
-  if (-not $holder -or ($AllowTask -and (Test-TaskProcess $holder))) { return }
+  if (-not $holder -or ($AllowTask -and $holder.ProcessId -in (Get-TaskTree))) { return }
   $what = if ($holder.CommandLine) { $holder.CommandLine } else { $holder.Name }
   throw "port $Port is in use by pid $($holder.ProcessId) ($what). Stop that process, or run setup.ps1 again with -Port <a free port>"
 }
@@ -143,7 +142,7 @@ function Assert-FreePort([switch]$AllowTask) {
 function Wait-Appium {
   foreach ($i in 1..60) {
     $holder = Get-PortHolder
-    if ($holder -and (Test-TaskProcess $holder)) {
+    if ($holder -and $holder.ProcessId -in (Get-TaskTree)) {
       $status = Invoke-Quiet curl.exe -s "http://127.0.0.1:$Port/status"
       if ("$status".Contains('"ready"')) { return }
     }
@@ -171,11 +170,12 @@ function Register-Service {
   $principal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive
   $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
   Register-ScheduledTask -TaskName $Task -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+  $old = Get-TaskTree
   Stop-ScheduledTask -TaskName $Task -ErrorAction SilentlyContinue
-  foreach ($i in 1..50) {
-    $holder = Get-PortHolder
-    if (-not $holder -or -not (Test-TaskProcess $holder)) { break }
-    Start-Sleep -Milliseconds 200
+  # Stop-ScheduledTask ends only the task's PowerShell, and its Appium continues to run.
+  if ($old) {
+    Stop-Process -Id $old -Force -ErrorAction SilentlyContinue
+    Wait-Process -Id $old -Timeout 10 -ErrorAction SilentlyContinue
   }
   Assert-FreePort
   Start-ScheduledTask -TaskName $Task
