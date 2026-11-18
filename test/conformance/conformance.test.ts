@@ -713,3 +713,45 @@ describe('check box', { skip: !fx.checkBox && 'no fixture check box on this OS' 
     await eventually(() => s.selected(box), (v) => v === was);
   });
 });
+
+describe('table', { skip: !fx.table && 'no fixture table on this OS' }, () => {
+  const table = fx.table!;
+  let s: Session;
+  const rows = async () => (xpath.select(table.rows, new DOMParser().parseFromString(await s.source(), 'text/xml') as unknown as Node) as unknown[]).length;
+
+  before(async () => {
+    s = await open(table.app);
+    await eventually(rows, (n) => n > 0, 20000);
+  });
+
+  after(async () => {
+    await s.terminateApp(table.newRow).catch(() => undefined);
+    await s.delete();
+  });
+
+  test('a handle in a table stays on its element while rows come and go', async () => {
+    const header = await s.find('xpath', table.headers[0]);
+    const name = await s.attribute(header, 'name');
+    const count = await rows();
+    await s.execute('xa11y: launch', { app: table.newRow });
+    await s.activateApp(table.app);
+    const more = await eventually(rows, (n) => n !== count, 20000);
+    assert.equal(await s.attribute(header, 'name'), name);
+    assert.ok((await s.rect(header)).width > 0);
+    await s.terminateApp(table.newRow);
+    await eventually(rows, (n) => n !== more, 20000);
+    assert.equal(await s.attribute(header, 'name'), name);
+    assert.ok((await s.rect(header)).width > 0);
+  });
+
+  test('a handle in a table header stays on its element after a tab changes the columns', async () => {
+    const header = await s.find('xpath', table.headers[1]);
+    const name = await s.attribute(header, 'name');
+    for (const tab of table.tabs) {
+      await s.click(await s.find('xpath', tab));
+      await eventually(async () => s.selected(await s.find('xpath', tab)), Boolean);
+      assert.equal(await s.attribute(header, 'name'), name);
+      assert.ok((await s.rect(header)).width > 0);
+    }
+  });
+});

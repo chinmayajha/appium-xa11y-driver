@@ -13,6 +13,8 @@ export interface Fixtures {
   checkBox?: { app: string; xpath: string };
   /** A button that opens a menu and has the combo_box role. */
   menuButton?: { app: string; xpath: string };
+  /** An app with a table whose rows come and go: `newRow` is an app that adds a row while it runs, and each tab shows other columns. */
+  table?: { app: string; rows: string; headers: [string, string]; tabs: [string, string]; newRow: string };
   /** The name of the calculator app, where `appium:app` takes a name in place of the app id. */
   calculatorName?: string;
 }
@@ -30,6 +32,13 @@ const fixtures: Record<string, Fixtures> = {
     checkBox: { app: 'com.apple.TextEdit', xpath: "//check_box[@name='bold']" },
     menuButton: { app: 'com.apple.TextEdit', xpath: "//combo_box[@type='AXPopUpButton']" },
     calculatorName: 'calculator',
+    table: {
+      app: 'com.apple.ActivityMonitor',
+      rows: '//list/tree_item',
+      headers: ["//button[@name='% CPU']", "//button[@name='Process Name']"],
+      tabs: ["//radio_button[@name='Memory']", "//radio_button[@name='CPU']"],
+      newRow: 'com.apple.calculator',
+    },
   },
   linux: {
     platformName: 'Linux',
