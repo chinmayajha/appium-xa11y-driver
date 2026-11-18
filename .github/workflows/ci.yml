@@ -63,6 +63,12 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
+      - name: host.sh stops when a different Appium holds its port
+        run: |
+          rc=0
+          out=$(timeout 60 ~/.local/share/appium-xa11y/host.sh run 2>&1) || rc=$?
+          echo "$out"
+          [ "$rc" != 0 ] && grep 'port 4723 is in use by pid [0-9]* (.*appium' <<<"$out" > /dev/null
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -133,6 +139,12 @@ jobs:
           echo "Appium did not start" >&2
           exit 1
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os mac
+      - name: setup.sh stops when a different Appium holds its port
+        run: |
+          rc=0
+          out=$(hosts/mac/setup.sh --driver . 2>&1) || rc=$?
+          echo "$out"
+          [ "$rc" != 0 ] && grep 'port 4723 is in use by pid [0-9]* (.*appium' <<<"$out" > /dev/null
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
