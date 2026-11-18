@@ -129,7 +129,7 @@ Some commands are different from other Appium drivers.
 | Surface | Prepare the Host | The Client connects to |
 |---|---|---|
 | This machine | `hosts/<os>/setup.sh` | `http://127.0.0.1:4723` |
-| A local VM or a cloud machine | the same script in the VM | an SSH tunnel to `127.0.0.1:4723` |
+| A local VM or a cloud machine | the same script in the VM | an SSH tunnel to `127.0.0.1:4723` from a free local port, one port for each VM |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
 | Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`, then `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux` | `http://127.0.0.1:4723` |
 | CI | the script on the runner ([.github/workflows/ci.yml](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/.github/workflows/ci.yml)) | `127.0.0.1:4723` on the runner |
