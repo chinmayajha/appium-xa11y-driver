@@ -34,7 +34,9 @@ The Windows script has the same options as PowerShell parameters: `-Driver`, `-A
 
 On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
 
-On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions. After the start of the LaunchAgent, the script reads `GET /xa11y/status`. When a permission is missing, the script shows the app or Node.js to grant and the restart command. It also opens the panes of the missing permissions in System Settings > Privacy & Security. With `--no-service`, the script shows the permissions of the terminal app. Screenshots need Screen & System Audio Recording. Pointer actions do not need it.
+On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions.
+
+After the start of the LaunchAgent, the script reads `GET /xa11y/status`. When a permission is missing, the script shows the app or Node.js to grant and the restart command. It also opens the panes of the missing permissions in System Settings > Privacy & Security. With `--no-service`, the script shows the permissions of the terminal app. Screenshots need Screen & System Audio Recording. Pointer actions do not need it.
 
 `GET /xa11y/status` needs no session. It gives the `platformName` of the Host. On macOS it also gives `accessibility`, `screenRecording`, `grantTo` and `next`:
 
