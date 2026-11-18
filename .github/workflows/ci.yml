@@ -64,7 +64,10 @@ jobs:
           exit 1
       # An app that starts outside Appium, as one from an SSH shell does, must not start a second AT-SPI bus.
       - name: Start an app outside Appium
-        run: DISPLAY=:99 XAUTHORITY="$HOME/.local/share/appium-xa11y/Xauthority" timeout 5 gnome-calculator || true
+        run: |
+          rc=0
+          DISPLAY=:99 XAUTHORITY="$HOME/.local/share/appium-xa11y/Xauthority" timeout 5 gnome-calculator || rc=$?
+          [ "$rc" = 124 ]
       - run: npm run conformance -- --url http://127.0.0.1:4723 --os linux
       - name: host.sh stops when a different Appium holds its port
         shell: bash
