@@ -4,6 +4,10 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- A session whose `platformName` is not the OS of the Host fails with `session not created`, and the error names the OS of the Host. Before, the driver started the session on the Host OS.
+
 ## [0.1.3]
 
 ### Added

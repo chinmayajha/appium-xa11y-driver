@@ -18,7 +18,8 @@ export const NO_FRAME: Frame = { left: 0, right: 0, top: 0, bottom: 0 };
 
 /** What differs between operating systems and xa11y does not cover. */
 export interface Platform {
-  readonly os: string;
+  /** The `platformName` capability of a session on this OS. */
+  readonly platformName: string;
   /** The modifier that `primary` names in a Chord: Meta on macOS, Ctrl elsewhere. */
   readonly primaryModifier: string;
   /** Tells the user what to grant or start when xa11y reports a permission error. */

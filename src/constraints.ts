@@ -1,5 +1,5 @@
 export const desiredCapConstraints = {
-  platformName: { presence: true, isString: true, inclusionCaseInsensitive: ['Mac', 'Windows', 'Linux'] },
+  platformName: { presence: true, isString: true },
   app: { isString: true },
   appName: { isString: true },
   appArguments: { isArray: true },

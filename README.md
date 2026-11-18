@@ -48,7 +48,7 @@ appium driver install --source=npm appium-xa11y-driver
 
 | Capability | Meaning |
 |---|---|
-| `platformName` | `Mac`, `Linux` or `Windows` |
+| `platformName` | The OS of the Host: `Mac`, `Linux` or `Windows`. A different value fails the session. |
 | `appium:automationName` | `Xa11y` |
 | `appium:app` | The app to start: an `.app` path, a bundle id or the name of an installed app on macOS, an executable on Linux and Windows. The session attaches to the new process. On macOS, when the app runs before the start, the session attaches to that instance and does not stop it at the end. A Chromium app on macOS starts with `--force-renderer-accessibility`; when it runs without that flag and does not accept `AXManualAccessibility`, the driver quits it and starts it again (work that is not saved is lost). On Windows, when the executable is a launcher that exits, for example `calc.exe`, the session attaches to the app that the launcher started. On Linux, when the executable starts the app as a child (for example a wrapper script), the session attaches to that child. On Linux, when an instance of the app runs before the start, and the new process exits with code 0 and shows no window, the driver takes it as a handoff to that instance. The driver stops that instance and starts the app again. Work that is not saved in that instance is lost. The driver cannot tell a handoff from an argument that makes the app write text and exit with code 0, such as `--version`: then the driver also stops the running instance. When no instance ran before the start, the driver attaches to the instance that the app starts (an app that detaches itself). When the new process exits with a different code or on a signal, the session fails and the running instance stays. To keep a running app, attach with `appium:appName`. |
 | `appium:appArguments` | Arguments for `appium:app` |
@@ -129,7 +129,7 @@ Some commands are different from other Appium drivers.
 | Surface | Prepare the Host | The Client connects to |
 |---|---|---|
 | This machine | `hosts/<os>/setup.sh` | `http://127.0.0.1:4723` |
-| A local VM or a cloud machine | the same script in the VM | an SSH tunnel to `127.0.0.1:4723` |
+| A local VM or a cloud machine | the same script in the VM | an SSH tunnel to `127.0.0.1:4723` from a free local port, one port for each VM |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
 | Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`, then `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux` | `http://127.0.0.1:4723` |
 | CI | the script on the runner ([.github/workflows/ci.yml](https://github.com/chinmayajha/appium-xa11y-driver/blob/main/.github/workflows/ci.yml)) | `127.0.0.1:4723` on the runner |

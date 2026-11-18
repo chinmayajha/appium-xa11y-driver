@@ -80,7 +80,7 @@ async function pidNamed(name: string): Promise<number | undefined> {
 }
 
 export const windows: Platform = {
-  os: 'windows',
+  platformName: 'Windows',
   primaryModifier: 'Ctrl',
   permissionHint: 'Run Appium in the same desktop session as the app, and at the same or a higher integrity level.',
   async launch(app, args, timeoutMs) {

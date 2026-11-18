@@ -239,7 +239,7 @@ hosts/mac/setup.sh     # or hosts/linux/setup.sh</code></pre>
       <table>
         <tr><th>Surface</th><th>Prepare the Host</th><th>Client connects to</th></tr>
         <tr><td>This machine</td><td><code>hosts/&lt;os&gt;/setup.sh</code></td><td><code>http://127.0.0.1:4723</code></td></tr>
-        <tr><td>Local VM or cloud machine</td><td>The same script in the VM</td><td>An SSH tunnel to <code>127.0.0.1:4723</code></td></tr>
+        <tr><td>Local VM or cloud machine</td><td>The same script in the VM</td><td>An SSH tunnel to <code>127.0.0.1:4723</code> from a free local port, one port for each VM</td></tr>
         <tr><td>Docker</td><td><code>docker/linux/Dockerfile</code></td><td><code>http://127.0.0.1:4723</code></td></tr>
         <tr><td>CI</td><td>The script on the runner</td><td><code>127.0.0.1:4723</code> on the runner</td></tr>
       </table>

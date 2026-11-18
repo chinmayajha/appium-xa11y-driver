@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { DOMParser, type Element as XmlElement } from '@xmldom/xmldom';
 import xpath from 'xpath';
-import { ELEMENT, Session, eventually, pngSize, rejectsWith } from './client';
+import { ELEMENT, Session, WebDriverError, eventually, pngSize, rejectsWith } from './client';
 import { fixturesFor } from './fixtures';
 
 const URL = process.env.CONFORMANCE_URL ?? 'http://127.0.0.1:4723';
@@ -660,6 +660,16 @@ describe('session errors', () => {
     } finally {
       await s.delete();
     }
+  });
+
+  test('a session for a different OS fails and names the Host OS', async () => {
+    const other = fx.platformName === 'Linux' ? 'Windows' : 'Linux';
+    const result = await open(fx.editor.app, { platformName: other }).catch((e: unknown) => e);
+    if (result instanceof Session) {
+      await result.delete();
+    }
+    assert.ok(result instanceof WebDriverError && result.code === 'session not created', `the session started: ${result}`);
+    assert.ok(result.message.includes(fx.platformName) && result.message.includes(other), result.message);
   });
 
   test('a bad app path fails the session and Appium keeps running', async () => {

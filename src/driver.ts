@@ -2,7 +2,7 @@ import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BaseDriver, errors } from 'appium/driver';
 import { util } from 'appium/support';
-import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
+import type { DefaultCreateSessionResult, DriverCaps, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
 import { asWebDriverError } from './errors';
 import { Input, type ActionSequence } from './input';
@@ -21,6 +21,13 @@ interface Session {
 const DEFAULT_LAUNCH_TIMEOUT_MS = 20000;
 const MAX_FAILURES_KEPT = 50;
 const ARTIFACT_NAME = /^\d{4}-\d{2}-\d{2}T[\d-]+Z-\w+\.(xml|png)$/;
+
+function requireHost(platform: Platform, asked: string): void {
+  if (asked.toLowerCase() !== platform.platformName.toLowerCase()) {
+    throw new errors.SessionNotCreatedError(`This Appium runs on a ${platform.platformName} Host, so it cannot start a session with platformName ${asked}. `
+      + `Send the session to the Appium on a ${asked} Host, or set platformName to ${platform.platformName}`);
+  }
+}
 
 export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   static executeMethodMap = {
@@ -42,6 +49,12 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     super(opts, shouldValidateCaps);
     this.desiredCapConstraints = desiredCapConstraints;
     this.locatorStrategies = LOCATOR_STRATEGIES;
+  }
+
+  validateDesiredCaps(caps: any): caps is DriverCaps<Xa11yConstraints> {
+    const valid = super.validateDesiredCaps(caps);
+    requireHost(currentPlatform(), caps.platformName);
+    return valid;
   }
 
   async executeCommand<T = unknown>(cmd: string, ...args: any[]): Promise<T> {
