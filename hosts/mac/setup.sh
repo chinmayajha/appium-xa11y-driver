@@ -7,6 +7,10 @@ APPIUM_VERSION="${APPIUM_VERSION:-3.9.0}"
 XA11Y_HOME="${XA11Y_HOME:-$HOME/Library/Application Support/appium-xa11y}"
 LABEL=appium-xa11y
 AGENT="$HOME/Library/LaunchAgents/$LABEL.plist"
+ALL_GRANTS='Accessibility and Screen & System Audio Recording'
+# osascript gets the grants of the terminal app that runs this script, as host.sh run does.
+TERMINAL_GRANTS="ObjC.import('ApplicationServices'); ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]);
+[\$.AXIsProcessTrusted() ? '' : 'Accessibility', \$.CGPreflightScreenCaptureAccess() ? '' : 'Screen & System Audio Recording'].filter(Boolean).join(' and ')"
 
 usage() {
   cat <<'EOF'
@@ -106,13 +110,17 @@ write_env() {
   install -m 0755 "${BASH_SOURCE[0]}" "$XA11Y_HOME/host.sh"
 }
 
-probe_url() {
+base_url() {
   case "$ADDRESS" in
-    0.0.0.0 | ::) printf 'http://127.0.0.1:%s/status' "$PORT" ;;
-    *:*) printf 'http://[%s]:%s/status' "$ADDRESS" "$PORT" ;;
-    *) printf 'http://%s:%s/status' "$ADDRESS" "$PORT" ;;
+    0.0.0.0 | ::) printf 'http://127.0.0.1:%s' "$PORT" ;;
+    *:*) printf 'http://[%s]:%s' "$ADDRESS" "$PORT" ;;
+    *) printf 'http://%s:%s' "$ADDRESS" "$PORT" ;;
   esac
 }
+
+probe_url() { printf '%s/status' "$(base_url)"; }
+
+status_url() { printf '%s/xa11y/status' "$(base_url)"; }
 
 port_holder() {
   local own="${1:-none}" pids pid rc=0
@@ -149,10 +157,12 @@ wait_for_appium() {
   return 1
 }
 
+running() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
+
 xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
 install_agent() {
-  local program log old
+  local program log old _
   program=$(xml_escape "$XA11Y_HOME/host.sh")
   log=$(xml_escape "$HOME/Library/Logs/$LABEL.log")
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -173,25 +183,39 @@ install_agent() {
 EOF
   old=$(agent_pid)
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-  while [ -n "$old" ] && kill -0 "$old" 2>/dev/null; do
+  for _ in $(seq 50); do
+    running "$old" || break
     sleep 0.2
   done
+  running "$old" && die "the old LaunchAgent (pid $old) did not stop"
   require_free_port
   launchctl bootstrap "gui/$(id -u)" "$AGENT"
   wait_for_appium || die "Appium did not start. See ~/Library/Logs/$LABEL.log"
   log "Appium listens on http://$ADDRESS:$PORT (LaunchAgent $LABEL, log in ~/Library/Logs/$LABEL.log)"
 }
 
-status_url() { probe_url | sed 's|/status$|/xa11y/status|'; }
+open_pane() { open "x-apple.systempreferences:com.apple.preference.security?$1" || true; }
+
+ask_grants() {
+  log "Grant $1 to $2 in System Settings > Privacy & Security, then $3"
+  case "$1" in *Accessibility*) open_pane Privacy_Accessibility ;; esac
+  case "$1" in *Recording*) open_pane Privacy_ScreenCapture ;; esac
+}
 
 show_permissions() {
-  local status
-  status=$(curl -sf "$(status_url)") || die "Appium does not answer $(status_url). See ~/Library/Logs/$LABEL.log"
-  printf '%s' "$status" | node -e '
+  local reply code
+  reply=$(curl -s -w '\n%{http_code}' "$(status_url)") || die "Appium does not answer $(status_url). See ~/Library/Logs/$LABEL.log"
+  code=${reply##*$'\n'}
+  if [ "$code" != 200 ]; then
+    log "$(status_url) gives HTTP $code, so this driver does not show its permissions"
+    ask_grants "$ALL_GRANTS" "$XA11Y_HOME/node/bin/node" "restart Appium: launchctl kickstart -k gui/$(id -u)/$LABEL"
+    return
+  fi
+  printf '%s' "${reply%$'\n'*}" | node -e '
     let s = "";
     process.stdin.on("data", (d) => (s += d)).on("end", () => {
       const v = JSON.parse(s).value;
-      console.log(v.next ?? "Appium has Accessibility and Screen & System Audio Recording.");
+      console.log(v.next ?? "Appium has the permissions that it needs.");
       if (!v.accessibility) console.log("Privacy_Accessibility");
       if (!v.screenRecording) console.log("Privacy_ScreenCapture");
     });' | {
@@ -199,9 +223,15 @@ show_permissions() {
     read -r line
     log "$line"
     while read -r pane; do
-      open "x-apple.systempreferences:com.apple.preference.security?$pane" || true
+      open_pane "$pane"
     done
   }
+}
+
+show_terminal_permissions() {
+  local missing
+  missing=$(osascript -l JavaScript -e "$TERMINAL_GRANTS" 2>/dev/null) || missing=$ALL_GRANTS
+  [ -z "$missing" ] || ask_grants "$missing" "the terminal app that runs host.sh" "start Appium"
 }
 
 setup() {
@@ -212,7 +242,8 @@ setup() {
   install_driver
   write_env
   if [ "$SERVICE" = no ]; then
-    log "Installed. Start Appium with: \"$XA11Y_HOME/host.sh\" run. Then $(status_url) shows its permissions."
+    log "Installed. Start Appium with: \"$XA11Y_HOME/host.sh\" run"
+    show_terminal_permissions
     return
   fi
   install_agent
