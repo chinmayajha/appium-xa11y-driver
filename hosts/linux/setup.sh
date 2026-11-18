@@ -234,6 +234,7 @@ setup() {
   if [ "$SERVICE" = yes ] && [ -d /run/systemd/system ]; then
     require_free_port "$(service_pid "$UNIT")" "${REPLACE:+$(service_pid "$REPLACE")}"
   fi
+  dbus-uuidgen --get > /dev/null 2>&1 || as_root dbus-uuidgen --ensure
   install_node
   install_appium
   install_driver
@@ -326,7 +327,10 @@ session_bus() {
   if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"
   elif [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    eval "$(dbus-launch --sh-syntax)"
+    local machine_id
+    machine_id=$(dbus-uuidgen --get) || die "D-Bus has no machine id. As root, run: dbus-uuidgen --ensure"
+    # Other clients of the display find this bus through X11 autolaunch. Otherwise they start a second bus, and its AT-SPI bus replaces this one.
+    eval "$(dbus-launch --sh-syntax --autolaunch="$machine_id")"
   fi
 }
 
