@@ -211,7 +211,7 @@ require_free_port() {
   die "port $PORT is in use by $holder. Stop that process, or run setup.sh again with --port <a free port>"
 }
 
-service_pid() { systemctl --user show -p MainPID --value "$UNIT" 2>/dev/null || true; }
+service_pid() { XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" systemctl --user show -p MainPID --value "$UNIT" 2>/dev/null || true; }
 
 wait_for_appium() {
   local _ pid
@@ -226,7 +226,8 @@ wait_for_appium() {
 }
 
 setup() {
-  if [ "$SERVICE" = yes ] && command -v ss > /dev/null; then
+  # With --replace, the old unit can hold the port until install_service stops it.
+  if [ "$SERVICE" = yes ] && [ -z "$REPLACE" ] && command -v ss > /dev/null; then
     require_free_port "$(service_pid)"
   fi
   mkdir -p "$XA11Y_HOME"

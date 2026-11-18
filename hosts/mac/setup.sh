@@ -199,7 +199,7 @@ show_permissions() {
     read -r line
     log "$line"
     while read -r pane; do
-      open "x-apple.systempreferences:com.apple.preference.security?$pane"
+      open "x-apple.systempreferences:com.apple.preference.security?$pane" || true
     done
   }
 }

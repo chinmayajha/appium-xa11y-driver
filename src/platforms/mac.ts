@@ -130,17 +130,17 @@ async function grantee(pid: number): Promise<string> {
   return exe.match(/^(.*?\.app)\/Contents\/MacOS\//)?.[1] ?? exe;
 }
 
-function restartStep(): string {
+function restart(): string {
   return process.env.XPC_SERVICE_NAME === SERVICE_LABEL
-    ? `then restart Appium: launchctl kickstart -k gui/${process.getuid?.()}/${SERVICE_LABEL}`
-    : 'then start Appium again';
+    ? `restart Appium: launchctl kickstart -k gui/${process.getuid?.()}/${SERVICE_LABEL}`
+    : 'start Appium again';
 }
 
 async function permissions(): Promise<Permissions> {
   const g = await grants(process.pid);
   const grantTo = await grantee(g.responsiblePid);
   const missing = [g.accessibility ? '' : 'Accessibility', g.screenRecording ? '' : 'Screen & System Audio Recording'].filter(Boolean);
-  const next = missing.length ? `Grant ${missing.join(' and ')} to ${grantTo} in ${PERMISSIONS}, ${restartStep()}` : undefined;
+  const next = missing.length ? `Grant ${missing.join(' and ')} to ${grantTo} in ${PERMISSIONS}, then ${restart()}` : undefined;
   return { accessibility: g.accessibility, screenRecording: g.screenRecording, grantTo, next };
 }
 
@@ -149,7 +149,11 @@ export const mac: Platform = {
   primaryModifier: 'Meta',
   async permissionHint() {
     const p = await permissions().catch(() => undefined);
-    return p?.next ?? `Grant Accessibility and Screen & System Audio Recording to ${p?.grantTo ?? 'the app that started Appium'} in ${PERMISSIONS}, ${restartStep()}`;
+    if (!p) {
+      return `Grant Accessibility and Screen & System Audio Recording to the app that started Appium in ${PERMISSIONS}, then ${restart()}`;
+    }
+    // A grant given after the start can reach the running process only after a restart.
+    return p.next ?? `${p.grantTo} has Accessibility and Screen & System Audio Recording. If you gave one after Appium started, ${restart()}`;
   },
   permissions,
   async launch(app, args, timeoutMs) {
