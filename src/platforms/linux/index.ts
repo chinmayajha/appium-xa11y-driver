@@ -195,7 +195,6 @@ async function hasActiveWindow(app: App): Promise<boolean> {
 }
 
 export const linux: Platform = {
-  os: 'linux',
   platformName: 'Linux',
   primaryModifier: 'Ctrl',
   permissionHint: 'Run Appium inside the Desktop session, with its DISPLAY, D-Bus session bus and AT-SPI bus (see hosts/linux/setup.sh).',

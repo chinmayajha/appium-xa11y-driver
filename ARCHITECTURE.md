@@ -34,7 +34,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
 | `Screen` | `capture()`, `capture(rect)`, `desktop()` | Scaling to Desktop coordinates; element and region images cut from one full capture |
-| `Platform` | `os`, `platformName`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `movePointer`, `pressButton`, `releaseButton`, `screens`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `menuButtonTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `startedAt`, `runningPid` | Everything that differs per OS and xa11y does not cover |
+| `Platform` | `platformName`, `primaryModifier`, `permissionHint`, `launch`, `isFrontmost`, `frontmostName`, `activate`, `wheel`, `movePointer`, `pressButton`, `releaseButton`, `screens`, `pressKey`, `releaseKeys`, `windowShadow`, `elementRect`, `stableId`, `identity`, `platformRole`, `scrollTypes`, `menuButtonTypes`, `settleAfterReleaseMs`, `typeTextMovesCaret`, `terminate`, `startedAt`, `runningPid` | Everything that differs per OS and xa11y does not cover |
 
 Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. Before a click or send keys, `Input` brings the Session app to the front; the guard then checks. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
@@ -83,7 +83,7 @@ One setup script per OS prepares a Host: [`hosts/`](hosts/). It installs Appium 
 | Surface | Host setup | Client connects |
 |---|---|---|
 | This machine | `hosts/<os>/setup.sh` | `http://127.0.0.1:4723` |
-| Local VM, cloud machine | the same script in the VM | SSH tunnel to `127.0.0.1:4723` |
+| Local VM, cloud machine | the same script in the VM | SSH tunnel to `127.0.0.1:4723` from a free local port, one port for each VM |
 | instabox | `instabox create --setup-file hosts/linux/setup.sh`, or a box from a saved snapshot | `instabox port-forward <box> 4723` |
 | Docker | `docker build -f docker/linux/Dockerfile -t appium-xa11y-linux .`: the image runs the Linux script | `docker run -p 127.0.0.1:4723:4723 appium-xa11y-linux`, then `http://127.0.0.1:4723` |
 | CI | Linux: the script in a `debian:13` container. macOS: `xa11y/setup-a11y`, then the script. Windows: the script. | `127.0.0.1:4723` on the runner |
