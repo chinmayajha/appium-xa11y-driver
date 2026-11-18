@@ -88,6 +88,7 @@ Each element is one XML tag. The tag is the xa11y role (`button`, `text_field`, 
 |---|---|
 | `type` | the role of the OS (`AXButton`, `push button`, `Button`) |
 | `name`, `value`, `label` | the accessible name, value and description |
+| `placeholder` | the hint text that an empty text field shows. It is empty when the field has no hint text. On Windows it is always empty, because UI Automation does not give it. |
 | `id` | the Stable id (AXIdentifier, AutomationId) if the app sets one. It is empty on Linux, because AT-SPI has no stable id. |
 | `enabled`, `visible`, `focused`, `selected`, `checked` | the state |
 | `clickable`, `checkable`, `editable`, `scrollable` | from the role and the actions of the element |
