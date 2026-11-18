@@ -2,7 +2,7 @@ import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BaseDriver, errors } from 'appium/driver';
 import { util } from 'appium/support';
-import type { DefaultCreateSessionResult, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
+import type { DefaultCreateSessionResult, DriverCaps, DriverData, ExecuteMethodMap, W3CDriverCaps } from '@appium/types';
 import { desiredCapConstraints, type Xa11yConstraints } from './constraints';
 import { asWebDriverError } from './errors';
 import { Input, type ActionSequence } from './input';
@@ -51,6 +51,12 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     this.locatorStrategies = LOCATOR_STRATEGIES;
   }
 
+  validateDesiredCaps(caps: any): caps is DriverCaps<Xa11yConstraints> {
+    const valid = super.validateDesiredCaps(caps);
+    requireHost(currentPlatform(), caps.platformName);
+    return valid;
+  }
+
   async executeCommand<T = unknown>(cmd: string, ...args: any[]): Promise<T> {
     const started = performance.now();
     try {
@@ -70,7 +76,6 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     const result = await super.createSession(w3cCaps1, w3cCaps2, w3cCaps3, driverData);
     try {
       const platform = currentPlatform();
-      requireHost(platform, this.opts.platformName);
       const target = new Target(platform, this.opts.launchTimeout ?? DEFAULT_LAUNCH_TIMEOUT_MS);
       const tree = new Tree(target, platform);
       this.session = { platform, target, tree, input: new Input(target, tree, platform, this.screen) };
