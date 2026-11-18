@@ -29,7 +29,7 @@ The external seam is the WebDriver protocol. Appium owns it. Every module below 
 
 | Module | Interface | Hides |
 |---|---|---|
-| `Xa11yDriver` (`driver.ts`) | Appium `BaseDriver` commands and `xa11y:` execute methods | Only translation: WebDriver arguments to module calls, module errors to WebDriver errors |
+| `Xa11yDriver` (`driver.ts`) | Appium `BaseDriver` commands, `xa11y:` execute methods and `GET /xa11y/status` (`updateServer`) | Only translation: WebDriver arguments to module calls, module errors to WebDriver errors |
 | `Target` | `launch(app, args)`, `attach({ name, pid })`, `activate()`, `activateOrLaunch(appId)`, `terminate(appId)`, `window(name?)`, `focusWindow(name?)`, `closeWindow(name?)`, `moveWindow(rect)`, `windows()`, `list()`, `app`, `terminateLaunched()` | Process start and stop per OS, attach by pid or name, a running instance before a new launch, the wait for the first window, the list of launched pids |
 | `Tree` | `source()`, `find(strategy, selector, context?, wait)`, `focused()`, `element(id)`, `rect(id)`, `visibleRect(id)`, `visibleCenter(id)`, `attribute(id, name)`, `state(id)`, `windowRect()` | The Page source contract, XPath over the snapshot, element handles and their identity (a handle of another app, or of another element at the same place, is stale), bounds in Desktop coordinates (toolkit corrections, hidden-element sentinels) |
 | `Input` | `click(element)`, `type(text, element?)`, `clear(element)`, `chord(keys)`, `perform(actions)`, `release()` | Accessibility action first, Raw input second; the Frontmost guard on every Raw input path; modifier release; wheel; key names |
