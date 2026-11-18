@@ -155,7 +155,7 @@ On an instabox box, the conformance suite took 18.0 s with the Client on the Hos
 
 ## Tests
 
-The conformance suite is the test of the driver. It talks WebDriver to a running Appium and drives the fixture apps of the OS of the Host: TextEdit and Calculator on macOS; mousepad, gnome-calculator and gtk3-widget-factory on Linux; Notepad and Calculator on Windows.
+The conformance suite is the test of the driver. It talks WebDriver to a running Appium and drives the fixture apps of the OS of the Host: TextEdit, Calculator and Activity Monitor on macOS; mousepad, gnome-calculator and gtk3-widget-factory on Linux; Notepad and Calculator on Windows.
 
 ```bash
 npm run conformance -- --url http://127.0.0.1:4723

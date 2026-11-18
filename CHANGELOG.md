@@ -18,7 +18,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 - The setup scripts stop when a different process holds the Appium port, before they install Appium or change the service. They name that process and the `--port` option (`-Port` on Windows). `host.sh run` and `host.ps1` do the same check. Before, setup reported success when a different Appium answered on the port.
 - On Windows, `setup.ps1` waits until the Appium of its logon task answers. Before, it reported success when it started the task.
 - On a Linux Host with no user session bus, the D-Bus session that `host.sh run` starts is the X11 autolaunch bus of the display. Before, an app that started on the display outside Appium (for example from an SSH shell) started a second session bus and a second AT-SPI bus. Then sessions failed with `runs, but it has no accessible app`, or the AT-SPI registry timed out.
-- An element handle stays on its element when siblings of a different kind come or go. Before, the handle kept the raw index of each ancestor. On macOS a table lists its rows before its columns and its header, so a handle of a header button (`% CPU` in Activity Monitor) went stale or to a table cell when a row was added or removed.
+- An element handle stays on its element when siblings of a different kind come or go. Before, the handle kept the raw index of each ancestor. On macOS, a table lists its rows before its columns and its header. When a row came or went, the driver reported a header button (`% CPU` in Activity Monitor) as stale.
 
 ## [0.1.3]
 
