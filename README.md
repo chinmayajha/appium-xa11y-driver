@@ -32,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File hosts\windows\setup.ps1
 
 The Windows script has the same options as PowerShell parameters: `-Driver`, `-Address`, `-Port` and `-NoService`. On Windows, the script installs the Visual C++ runtime when it is missing, and that needs an administrator one time.
 
-On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Docker and CI use the same script.
+On Linux the service is a systemd user unit, `appium-xa11y.service`, with linger on. It uses the X11 display that is there. If there is no display, it starts Xvfb with a cookie, the Openbox window manager, a D-Bus session and the AT-SPI bus. Other apps on that display, for example apps that you start from an SSH shell, find the same D-Bus session through X11 autolaunch. Docker and CI use the same script.
 
 On macOS the service is a LaunchAgent, `appium-xa11y`. The service runs on its own Node.js, and that Node.js must have Accessibility and Screen & System Audio Recording. When you start Appium with `host.sh run` in a terminal, the terminal app must have these permissions.
 

@@ -326,7 +326,10 @@ session_bus() {
   if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"
   elif [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    eval "$(dbus-launch --sh-syntax)"
+    local id
+    id=$(dbus-uuidgen --get) || die "D-Bus has no machine id. As root, run: dbus-uuidgen --ensure"
+    # Other clients of the display find this bus through X11 autolaunch. Otherwise they start a second bus, and its AT-SPI bus replaces this one.
+    eval "$(dbus-launch --sh-syntax --autolaunch="$id")"
   fi
 }
 
