@@ -7,7 +7,7 @@ import { fixturesFor } from './fixtures';
 
 const URL = process.env.CONFORMANCE_URL ?? 'http://127.0.0.1:4723';
 const fx = fixturesFor(process.env.CONFORMANCE_OS ?? 'mac');
-const CONTRACT = ['type', 'name', 'value', 'label', 'id', 'enabled', 'visible', 'focused', 'selected', 'checked',
+const CONTRACT = ['type', 'name', 'value', 'label', 'placeholder', 'id', 'enabled', 'visible', 'focused', 'selected', 'checked',
   'clickable', 'checkable', 'editable', 'scrollable'];
 const BOUNDS = ['x', 'y', 'width', 'height'];
 
@@ -529,6 +529,24 @@ describe('menu button', { skip: !fx.menuButton && 'no fixture menu button on thi
       const button = await s.find('xpath', fx.menuButton!.xpath);
       assert.equal(await s.attribute(button, 'editable'), 'false');
       assert.equal(await s.attribute(button, 'clickable'), 'true');
+    } finally {
+      await s.delete();
+    }
+  });
+});
+
+describe('placeholder', { skip: !fx.placeholder && 'UI Automation gives no placeholder' }, () => {
+  test('a field whose only text is its placeholder is found by the placeholder', async () => {
+    const { app, text, chord } = fx.placeholder!;
+    const s = await open(app);
+    try {
+      if (chord) {
+        await s.execute('xa11y: chord', { keys: chord });
+      }
+      const field = await s.find('xpath', `//*[@placeholder='${text}']`);
+      assert.equal(await s.attribute(field, 'placeholder'), text);
+      assert.equal(await s.attribute(field, 'value'), '');
+      assert.equal(await s.attribute(await s.find('xpath', '//button'), 'placeholder'), '');
     } finally {
       await s.delete();
     }

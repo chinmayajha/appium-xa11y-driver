@@ -6,6 +6,7 @@ All notable changes to this project are in this file. The format is [Keep a Chan
 
 ### Changed
 
+- **Breaking:** Each element in the Page source has the `placeholder` attribute, the hint text of the element (for example, of an empty text field). It comes from `AXPlaceholderValue` on macOS and from the AT-SPI `placeholder-text` attribute on Linux, and it is always empty on Windows. Use `//*[@placeholder='...']` to find a field whose name, value and label are empty. `GET /element/:id/attribute/placeholder` gives the text. With an xa11y release that has no `Element.placeholder`, the attribute is empty.
 - **Breaking:** The driver uses xa11y 0.16.0, and the Page source shows the names that xa11y 0.16.0 gives:
   - On macOS, a button, menu button or image with no title has its text in `name`, and `label` is empty. Before, the text was in `label`. For example, the Search button of Calendar has `name="Search"` and `label=""`.
   - On macOS, a static text has a `name`: its text, or its description when it has no text. Before, `name` was empty in Chromium apps and for a static text with no value.

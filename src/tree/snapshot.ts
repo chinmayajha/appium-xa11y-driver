@@ -65,6 +65,9 @@ function boundsOf(rect: Rect | null): Record<string, string> {
   return rect ? Object.fromEntries((['x', 'y', 'width', 'height'] as const).map((k) => [k, String(Math.round(rect[k]))])) : {};
 }
 
+// xa11y releases before Element.placeholder do not have the getter.
+type WithPlaceholder = Element & { placeholder?: string | null };
+
 export function attributesOf(el: Element, { rect, id }: Placement, names: RoleNames): Record<string, string> {
   const type = names.platformRole(el);
   return {
@@ -72,6 +75,7 @@ export function attributesOf(el: Element, { rect, id }: Placement, names: RoleNa
     name: el.name ?? '',
     value: el.value ?? '',
     label: el.description ?? '',
+    placeholder: (el as WithPlaceholder).placeholder ?? '',
     id,
     enabled: String(el.enabled),
     visible: String(el.visible && rect !== null),

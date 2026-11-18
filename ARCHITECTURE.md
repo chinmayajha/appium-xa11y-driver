@@ -40,7 +40,7 @@ Rules:
 - **Raw input exists only inside `Input`.** No other module calls `inputSim()`. The Frontmost guard is private to `Input`, so no path can skip it. Before a click or send keys, `Input` brings the Session app to the front; the guard then checks. `Target` activates the Session app when the session starts, on `xa11y: launch`, `xa11y: focusWindow` and `activateApp`. The guard checks again between the events of one action sequence; checks closer together than 100 ms share one result.
 - **A pointer move to a point on no screen fails** with `move target out of bounds`. The driver does not clamp it to a screen edge.
 - **Coordinates exist only as Desktop coordinates.** `Tree.rect`, pointer input and `Screen` use the same space. Conversion happens once, in `Tree` (bounds) and `Screen` (images).
-- **The Page source is a contract.** Tags are xa11y roles. Attributes: `type`, `name`, `value`, `label`, `id`, `enabled`, `visible`, `focused`, `selected`, `checked`, `clickable`, `checkable`, `editable`, `scrollable`, `x`, `y`, `width`, `height`. An element with no reliable bounds has no `x`/`y`/`width`/`height` and `visible="false"`. Changes are breaking changes for clients.
+- **The Page source is a contract.** Tags are xa11y roles. Attributes: `type`, `name`, `value`, `label`, `placeholder`, `id`, `enabled`, `visible`, `focused`, `selected`, `checked`, `clickable`, `checkable`, `editable`, `scrollable`, `x`, `y`, `width`, `height`. An element with no reliable bounds has no `x`/`y`/`width`/`height` and `visible="false"`. Changes are breaking changes for clients.
 - **`Platform` is the only place that branches on the OS.** In `src/`, no `process.platform` outside `platforms/`.
 
 ## Platform seam
