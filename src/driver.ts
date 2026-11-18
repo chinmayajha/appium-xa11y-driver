@@ -22,6 +22,13 @@ const DEFAULT_LAUNCH_TIMEOUT_MS = 20000;
 const MAX_FAILURES_KEPT = 50;
 const ARTIFACT_NAME = /^\d{4}-\d{2}-\d{2}T[\d-]+Z-\w+\.(xml|png)$/;
 
+function requireHost(platform: Platform, asked: string): void {
+  if (asked.toLowerCase() !== platform.platformName.toLowerCase()) {
+    throw new errors.SessionNotCreatedError(`This Appium runs on a ${platform.platformName} Host, so it cannot start a session with platformName ${asked}. `
+      + `Send the session to the Appium on a ${asked} Host, or set platformName to ${platform.platformName}`);
+  }
+}
+
 export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
   static executeMethodMap = {
     'xa11y: chord': { command: 'xa11yChord', params: { required: ['keys'] } },
@@ -63,6 +70,7 @@ export class Xa11yDriver extends BaseDriver<Xa11yConstraints> {
     const result = await super.createSession(w3cCaps1, w3cCaps2, w3cCaps3, driverData);
     try {
       const platform = currentPlatform();
+      requireHost(platform, this.opts.platformName);
       const target = new Target(platform, this.opts.launchTimeout ?? DEFAULT_LAUNCH_TIMEOUT_MS);
       const tree = new Tree(target, platform);
       this.session = { platform, target, tree, input: new Input(target, tree, platform, this.screen) };
